@@ -301,7 +301,7 @@ function WechatDirectSection(props: {
                     <span className="text-sm">
                       {c.display_name}
                       <span className="ml-2 text-xs text-muted-foreground">
-                        {c.message_count} 条消息
+                        历史共 {c.message_count} 条
                       </span>
                     </span>
                     <button

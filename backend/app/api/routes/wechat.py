@@ -23,10 +23,11 @@ from app.db import connect, utcnow
 
 router = APIRouter(prefix="/api/wechat", tags=["wechat-direct"])
 
-# 回填与游标参数：绑定导入最近 7 天尾部消息；同步查询带 2s 重叠，配合
+# 回填与游标参数：绑定导入最近 30 天（尾部最多 500 条，防几千条全量轰炸拖慢
+# 首次分析——超出部分的摘要成本不划算）；同步查询带 2s 重叠，配合
 # wechat_server_id 唯一索引兜底同秒消息，不漏不重。
-BACKFILL_WINDOW_S = 7 * 86400
-BACKFILL_LIMIT = 50
+BACKFILL_WINDOW_S = 30 * 86400
+BACKFILL_LIMIT = 500
 SYNC_OVERLAP_S = 2
 
 _master_key_re = re.compile(r"master key: ([0-9a-f]{64})")
