@@ -11,6 +11,8 @@ export type ReplyStyle = 'warm' | 'casual' | 'deep'
 export interface ReplyOption {
   style: ReplyStyle
   reply: string
+  /** 预判对方收到后的反应（可能为空，旧数据兼容） */
+  expected_reaction?: string
 }
 
 export interface AnalysisResult {

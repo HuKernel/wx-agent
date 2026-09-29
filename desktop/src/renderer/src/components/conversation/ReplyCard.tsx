@@ -31,6 +31,11 @@ export default function ReplyCard({ option }: ReplyCardProps): React.JSX.Element
         </button>
       </div>
       <p className="mt-2 text-sm leading-relaxed">{option.reply}</p>
+      {option.expected_reaction && (
+        <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+          ↩ {option.expected_reaction}
+        </p>
+      )}
     </div>
   )
 }
