@@ -10,8 +10,8 @@ class LLMError(RuntimeError):
     """LLM 调用或输出解析失败，消息可直接透给前端。"""
 
 
-def _chat(llm: LLMConfig, messages: list[dict], json_output: bool = True) -> str:
-    body: dict = {"model": llm.model, "messages": messages, "temperature": 0.7}
+def _chat(llm: LLMConfig, messages: list[dict], json_output: bool = True, temperature: float = 0.9) -> str:
+    body: dict = {"model": llm.model, "messages": messages, "temperature": temperature}
     if json_output:
         body["response_format"] = {"type": "json_object"}
     url = llm.base_url.rstrip("/") + "/chat/completions"
@@ -61,7 +61,8 @@ def summarize_messages(llm: LLMConfig, messages: list[dict]) -> str:
         {"role": "system", "content": SUMMARY_PROMPT},
         {"role": "user", "content": "\n".join(lines)},
     ]
-    text = _chat(llm, messages_payload, json_output=False)
+    # 摘要要稳定忠实，用低温度
+    text = _chat(llm, messages_payload, json_output=False, temperature=0.3)
     if not text or not text.strip():
         raise LLMError("模型返回了空摘要")
     return text.strip()
