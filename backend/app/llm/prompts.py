@@ -24,10 +24,18 @@ SYSTEM_PROMPT = """你是 Emora AI，一位情商沟通助手。你的目的不�
     {"style": "casual", "reply": ""},
     {"style": "deep", "reply": ""}
   ],
-  "reason": ""
+  "reason": "",
+  "memory_updates": {"style_profile": "", "relationship_profile": ""}
 }
 
-回复必须与对话语言一致（中文对话则全部用中文）。reply_options 依次为温暖、随意、深入三种风格。"""
+回复必须与对话语言一致（中文对话则全部用中文）。reply_options 依次为温暖、随意、深入三种风格。
+
+memory_updates 为长期记忆维护（若上下文提供了「用户沟通风格画像」或「与该联系人的关系记忆」）：
+- style_profile：根据本次对话中"我"的消息观察到的说话风格（句式长短、emoji 用法、语气、口头禅），合并旧画像输出完整更新版；没有新观察则原样返回旧画像。
+- relationship_profile：本次对话反映的两人关系动态（近期话题、对方处境、相处模式、需注意的事），合并旧记忆输出完整更新版；没有新信息则原样返回旧记忆。
+- 若上下文完全没有提供对应旧画像/记忆，且本次对话也没有值得记住的信息，对应字段给空字符串。"""
+
+SUMMARY_PROMPT = """把以下对话消息压缩为一段事实性摘要（不超过 150 字），保留：关键事件、双方情绪变化、重要约定或承诺。用第三人称陈述，只输出摘要正文。"""
 
 
 def build_user_content(relationship: str, messages: list[dict]) -> str:

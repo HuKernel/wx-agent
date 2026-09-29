@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import analyze, conversations, health
+from app.api.routes import analyze, conversations, health, memories
 from app.core.config import settings
 from app.db import init_db
 
@@ -26,3 +26,4 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(analyze.router)
 app.include_router(conversations.router)
+app.include_router(memories.router)

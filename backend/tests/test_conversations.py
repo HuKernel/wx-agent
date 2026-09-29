@@ -77,6 +77,7 @@ def test_analyze_persists_latest(monkeypatch: pytest.MonkeyPatch):
         client, "call_llm", lambda *a, **k: client.AnalysisResult.model_validate(VALID_RESULT)
     )
     cid = _create()
+    api.post(f"/api/conversations/{cid}/messages", json={"role": "them", "text": "好烦啊"})
     resp = api.post("/api/analyze", json=_analyze_req(cid))
     assert resp.status_code == 200
 

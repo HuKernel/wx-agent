@@ -16,9 +16,9 @@ class ChatMsg(BaseModel):
 
 class AnalyzeRequest(BaseModel):
     llm: LLMConfig
-    relationship: str
-    messages: list[ChatMsg]
-    """提供时分析结果会持久化到该对话"""
+    """无 conversation_id 时才需要 relationship / messages"""
+    relationship: str = ""
+    messages: list[ChatMsg] = []
     conversation_id: str | None = None
 
 
@@ -33,6 +33,11 @@ class ReplyOption(BaseModel):
     reply: str
 
 
+class MemoryUpdates(BaseModel):
+    style_profile: str | None = None
+    relationship_profile: str | None = None
+
+
 class AnalysisResult(BaseModel):
     """对齐 /docs/AI_PROMPT.md §6 与前端 desktop types/analysis.ts。"""
 
@@ -41,3 +46,4 @@ class AnalysisResult(BaseModel):
     risk_warning: str
     reply_options: list[ReplyOption]
     reason: str
+    memory_updates: MemoryUpdates | None = None

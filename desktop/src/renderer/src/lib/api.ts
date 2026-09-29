@@ -55,7 +55,28 @@ export const api = {
     }),
 
   deleteMessage: (conversationId: string, messageId: number): Promise<void> =>
-    request(`/conversations/${conversationId}/messages/${messageId}`, { method: 'DELETE' })
+    request(`/conversations/${conversationId}/messages/${messageId}`, { method: 'DELETE' }),
+
+  listMemories: (): Promise<ApiMemory[]> => request('/memories'),
+
+  deleteMemory: (memoryId: number): Promise<void> =>
+    request(`/memories/${memoryId}`, { method: 'DELETE' })
+}
+
+export interface ApiMemory {
+  id: number
+  kind: 'style' | 'relationship' | 'summary'
+  scope: 'global' | 'conversation'
+  content: string
+  contact_name: string | null
+  created_at: string
+  updated_at: string
+}
+
+export const memoryKindLabel: Record<ApiMemory['kind'], string> = {
+  style: '沟通风格',
+  relationship: '关系记忆',
+  summary: '对话摘要'
 }
 
 /** ISO 时间 → 本地 HH:MM */

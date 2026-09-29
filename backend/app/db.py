@@ -22,6 +22,21 @@ CREATE TABLE IF NOT EXISTS messages (
     created_at      TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
+
+CREATE TABLE IF NOT EXISTS memories (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    scope           TEXT NOT NULL CHECK(scope IN ('global','conversation')),
+    conversation_id TEXT REFERENCES conversations(id) ON DELETE CASCADE,
+    kind            TEXT NOT NULL CHECK(kind IN ('style','relationship','summary')),
+    content         TEXT NOT NULL,
+    covered_to      INTEGER,
+    source_type     TEXT NOT NULL DEFAULT 'inferred',
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_memory_style ON memories(conversation_id) WHERE kind = 'style';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_memory_relationship ON memories(conversation_id) WHERE kind = 'relationship';
+CREATE INDEX IF NOT EXISTS idx_memory_conversation ON memories(conversation_id);
 """
 
 
