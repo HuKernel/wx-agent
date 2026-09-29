@@ -1,5 +1,7 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
+import { getSettings, saveSettings } from './settings'
+import { analyzeConversation, type AnalyzePayload } from './analyze'
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -20,6 +22,10 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  ipcMain.handle('settings:get', () => getSettings())
+  ipcMain.handle('settings:save', (_e, input) => saveSettings(input))
+  ipcMain.handle('analyze', (_e, payload: AnalyzePayload) => analyzeConversation(payload))
+
   createWindow()
 
   app.on('activate', () => {

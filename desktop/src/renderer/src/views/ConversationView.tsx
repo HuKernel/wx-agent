@@ -1,14 +1,17 @@
 import { useState } from 'react'
-import { Send } from 'lucide-react'
+import { Loader2, Send, Sparkles } from 'lucide-react'
 import ConversationList from '../components/conversation/ConversationList'
 import MessageBubble from '../components/conversation/MessageBubble'
 import EmotionPanel from '../components/conversation/EmotionPanel'
 import { mockConversations } from '../data/mock'
+import type { AnalysisResult } from '../types/analysis'
 
 export default function ConversationView(): React.JSX.Element {
   const [conversations, setConversations] = useState(mockConversations)
   const [activeId, setActiveId] = useState(mockConversations[0].id)
   const [draft, setDraft] = useState('')
+  const [analyzing, setAnalyzing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const active = conversations.find((c) => c.id === activeId) ?? conversations[0]
 
@@ -20,15 +23,30 @@ export default function ConversationView(): React.JSX.Element {
         c.id === active.id
           ? {
               ...c,
-              messages: [
-                ...c.messages,
-                { id: `local-${Date.now()}`, role: 'me', text, time: '刚刚' }
-              ]
+              messages: [...c.messages, { id: `local-${Date.now()}`, role: 'me', text, time: '刚刚' }]
             }
           : c
       )
     )
     setDraft('')
+  }
+
+  const analyze = async (): Promise<void> => {
+    setAnalyzing(true)
+    setError(null)
+    try {
+      const result = (await window.emora.analyze({
+        relationship: active.relationship,
+        messages: active.messages.map((m) => ({ role: m.role, text: m.text }))
+      })) as AnalysisResult
+      setConversations((prev) =>
+        prev.map((c) => (c.id === active.id ? { ...c, analysis: result } : c))
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '分析失败，请稍后重试')
+    } finally {
+      setAnalyzing(false)
+    }
   }
 
   return (
@@ -41,6 +59,19 @@ export default function ConversationView(): React.JSX.Element {
             <h1 className="font-semibold">{active.contactName}</h1>
             <p className="text-xs text-muted-foreground">{active.relationship}</p>
           </div>
+          <button
+            type="button"
+            onClick={analyze}
+            disabled={analyzing}
+            className="flex cursor-pointer items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity duration-200 hover:opacity-90 disabled:cursor-default disabled:opacity-60"
+          >
+            {analyzing ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            ) : (
+              <Sparkles className="h-4 w-4" aria-hidden />
+            )}
+            {analyzing ? '分析中…' : 'AI 分析'}
+          </button>
         </header>
 
         <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
@@ -77,13 +108,22 @@ export default function ConversationView(): React.JSX.Element {
         </div>
       </div>
 
-      {active.analysis ? (
+      {active.analysis && !error ? (
         <EmotionPanel analysis={active.analysis} />
       ) : (
-        <div className="flex h-full w-80 items-center justify-center border-l border-border bg-muted/40 p-6 text-center text-sm leading-relaxed text-muted-foreground">
-          暂无分析结果。
-          <br />
-          AI 分析将在 Phase 3 接入后提供。
+        <div className="flex h-full w-80 flex-col items-center justify-center gap-2 border-l border-border bg-muted/40 p-6 text-center text-sm leading-relaxed text-muted-foreground">
+          {error ? (
+            <p className="text-destructive">{error}</p>
+          ) : (
+            <>
+              <Sparkles className="h-5 w-5 text-secondary" aria-hidden />
+              <p>
+                {active.messages.length > 0
+                  ? '点击上方「AI 分析」，生成情绪洞察与回复建议'
+                  : '发送消息后即可分析'}
+              </p>
+            </>
+          )}
         </div>
       )}
     </div>
