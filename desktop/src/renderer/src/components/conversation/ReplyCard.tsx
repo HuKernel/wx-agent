@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Check, Copy } from 'lucide-react'
 import { replyStyleLabel, type ReplyOption } from '../../types/analysis'
+import EmotionText from './EmotionText'
 
 interface ReplyCardProps {
   option: ReplyOption
@@ -30,7 +31,9 @@ export default function ReplyCard({ option }: ReplyCardProps): React.JSX.Element
           {copied ? <Check className="h-4 w-4" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}
         </button>
       </div>
-      <p className="mt-2 text-sm leading-relaxed">{option.reply}</p>
+      <p className="mt-2 text-sm leading-relaxed">
+        <EmotionText text={option.reply} />
+      </p>
       {option.expected_reaction && (
         <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
           ↩ {option.expected_reaction}

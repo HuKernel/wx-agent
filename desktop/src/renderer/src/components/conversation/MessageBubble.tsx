@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
 import { formatTime } from '../../lib/api'
 import type { ApiMessage } from '../../types/analysis'
+import EmotionText from './EmotionText'
 
 interface MessageBubbleProps {
   message: ApiMessage
@@ -28,7 +29,9 @@ export default function MessageBubble({ message, onDelete }: MessageBubbleProps)
             : 'rounded-bl-md bg-muted text-foreground'
         }`}
       >
-        <p>{message.text}</p>
+        <p>
+          <EmotionText text={message.text} />
+        </p>
         <span
           className={`mt-1 block text-right text-xs ${isMine ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}
         >
