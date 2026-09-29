@@ -54,6 +54,8 @@ def client(tmp_path, monkeypatch, reader_store):
         return FakeReader(reader_store)
 
     monkeypatch.setattr("app.api.routes.wechat._make_reader", make_fake_reader)
+    # FakeReader 的假 wxid_dir 下没有 db_storage 结构，绕过 4.x 目录有效性检查
+    monkeypatch.setattr("app.api.routes.wechat._is_v4_dir", lambda wxid_dir: True)
     with TestClient(app) as c:
         yield c
 

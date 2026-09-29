@@ -105,6 +105,7 @@ export interface ApiWechatStatus {
   key_ok: boolean
   account_id?: string
   wxid_dir?: string | null
+  dir_valid?: boolean
 }
 
 export interface ApiWechatConversation {

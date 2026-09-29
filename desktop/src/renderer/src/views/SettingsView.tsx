@@ -78,6 +78,7 @@ function WechatDirectSection(props: {
 }): React.JSX.Element {
   const { dataRoot, directOn, onPersist } = props
   const [keyOk, setKeyOk] = useState<boolean | null>(null)
+  const [dirValid, setDirValid] = useState<boolean | null>(null)
   const [extracting, setExtracting] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -86,9 +87,11 @@ function WechatDirectSection(props: {
 
   const refreshStatus = async (): Promise<void> => {
     setKeyOk(null)
+    setDirValid(null)
     try {
       const s = await api.wechatStatus(dataRoot)
       setKeyOk(s.key_ok)
+      setDirValid(s.key_ok ? (s.dir_valid ?? true) : null)
     } catch {
       setKeyOk(false)
     }
@@ -174,10 +177,17 @@ function WechatDirectSection(props: {
           value={dataRoot}
           onChange={(e) => onPersist({ wechatDataRoot: e.target.value })}
           onBlur={(e) => onPersist({ wechatDataRoot: e.target.value.trim() })}
-          placeholder="留空自动探测；迁移过目录时填写 xwechat_files 所在路径"
+          placeholder="留空自动探测；自动探测到旧版目录时会在这里提示，需手动填写 xwechat_files 路径"
           className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition-shadow duration-200 focus:border-primary/50"
         />
       </label>
+
+      {dirValid === false && (
+        <p className="rounded-xl bg-muted px-3.5 py-2.5 text-sm leading-relaxed text-amber-600">
+          自动探测到的不是有效的微信 4.x 数据目录（可能是旧版遗留）。请在上方填写
+          xwechat_files 所在路径，例如 <span className="font-mono text-xs">D:\wenjian\xwechat_files</span>
+        </p>
+      )}
 
       <div className="flex items-center gap-3">
         <span className={`text-sm ${keyOk === null ? 'text-muted-foreground' : keyOk ? 'text-primary' : 'text-destructive'}`}>
@@ -197,7 +207,7 @@ function WechatDirectSection(props: {
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      {keyOk === true && (
+      {keyOk === true && dirValid !== false && (
         <>
           <label className="flex cursor-pointer items-center gap-2.5">
             <input

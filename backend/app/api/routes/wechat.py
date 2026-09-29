@@ -32,6 +32,15 @@ SYNC_OVERLAP_S = 2
 _master_key_re = re.compile(r"master key: ([0-9a-f]{64})")
 
 
+def _is_v4_dir(wxid_dir) -> bool:
+    """微信 4.x 独有的 db_storage/message 结构；自动探测可能命中 3.x 遗留目录，
+    其下虽散落同名 db 但 read_conversation_directory 会失败，须提前识别。"""
+    if not wxid_dir:
+        return False
+    msg_dir = Path(wxid_dir) / "db_storage" / "message"
+    return msg_dir.is_dir() and any(msg_dir.glob("message_*.db"))
+
+
 def _make_reader(data_root: str | None):
     from chatlog_keeper.wechat_db import WeChatDBReader
 
@@ -99,6 +108,7 @@ def status(data_root: str | None = None) -> dict:
         "key_ok": True,
         "account_id": reader.account_id,
         "wxid_dir": str(reader.wxid_dir) if reader.wxid_dir else None,
+        "dir_valid": _is_v4_dir(reader.wxid_dir),
     }
 
 
@@ -167,7 +177,13 @@ def conversations(data_root: str | None = None, limit: int = 50) -> list[dict]:
         raise HTTPException(409, "还没有可用密钥，请先提取")
     directory = reader.read_conversation_directory()
     if directory is None:
-        raise HTTPException(500, "会话目录读取失败")
+        detected = reader.wxid_dir or "（未探测到任何微信目录）"
+        raise HTTPException(
+            422,
+            f"自动探测到的目录不是有效的微信 4.x 数据目录：{detected}。"
+            "请在上方「微信数据目录」填写 xwechat_files 所在路径"
+            "（例如 D:\\wenjian\\xwechat_files），保存后重试。",
+        )
     direct = [c for c in directory if c.get("conversation_type") == "direct"]
     direct.sort(key=lambda c: -(c.get("message_count") or 0))
     result = []
@@ -195,6 +211,14 @@ def bind(req: BindRequest) -> dict:
     reader = _make_reader(req.data_root)
     if reader is None:
         raise HTTPException(409, "还没有可用密钥，请先提取")
+    if not _is_v4_dir(reader.wxid_dir):
+        # 目录无效时不允许绑定：否则建出一个永远同步不到消息的空会话
+        detected = reader.wxid_dir or "（未探测到任何微信目录）"
+        raise HTTPException(
+            422,
+            f"自动探测到的目录不是有效的微信 4.x 数据目录：{detected}。"
+            "请在设置中填写 xwechat_files 所在路径后重试。",
+        )
 
     conv = conv_store.create_conversation(req.display_name, req.relationship)
     now = time.time()
