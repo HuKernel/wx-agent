@@ -9,17 +9,19 @@ from fastapi.testclient import TestClient
 
 
 class FakeMessage:
-    def __init__(self, ts: float, sender: str, content: str, server_id: str = ""):
+    def __init__(self, ts: float, sender: str, content: str, server_id: str = "", msg_type: int = 1):
         self.timestamp = datetime.fromtimestamp(ts)
         self.sender = sender
         self.content = content
         self.server_id = server_id
+        self.msg_type = msg_type
 
 
 class FakeReader:
     """按 (chat_id, since_ts) 返回固定消息集，模拟 read_after。"""
 
-    account_id = "wxid_me"
+    # 账号目录名带多开后缀（真实机器形态）；消息表 sender 是裸 wxid
+    account_id = "wxid_me_5305"
     wxid_dir = Path("D:/fake")
 
     def __init__(self, store=None, data_root=None, account_id=None):
@@ -127,7 +129,34 @@ def test_sync_incremental_dedup_and_analysis_flag(client, reader_store):
     assert r["updated"][0]["need_analysis"] is False
 
 
-def test_unbind_keeps_conversation(client, reader_store):
+def test_content_cleaning_and_roles(client, reader_store):
+    """角色前缀匹配（多开目录后缀）+ 引用/表情/语音占位清理。"""
+    now = _now()
+    reader_store["wxid_d"] = [
+        # 裸 wxid 是 account_id（wxid_me_5305）的前缀 → 应判 me
+        FakeMessage(now - 40, "wxid_me", "我的话", server_id="30"),
+        FakeMessage(now - 30, "wxid_d", "对方的话", server_id="31"),
+        FakeMessage(now - 20, "wxid_d", "[表情#f5523080]", server_id="32"),
+        FakeMessage(
+            now - 10, "wxid_d",
+            "[引用 wxid_d: 好回复] ↳svrid:899039 @2026-09-29 那就这样",
+            server_id="33",
+        ),
+        FakeMessage(now - 5, "wxid_d", "", server_id="34", msg_type=3),  # 图片无文本
+    ]
+    cid = client.post("/api/wechat/bind", json={
+        "chat_id": "wxid_d", "display_name": "小测试",
+    }).json()["conversation_id"]
+    msgs = client.get(f"/api/conversations/{cid}").json()["messages"]
+    texts = {m["text"]: m["role"] for m in msgs}
+    assert texts["我的话"] == "me"
+    assert texts["对方的话"] == "them"
+    assert texts["[表情]"] == "them"           # [表情#md5] → [表情]
+    assert "[引用：好回复] 那就这样" in texts   # 引用去 wxid/svrid 原始数据
+    assert texts["[图片]"] == "them"            # 空文本按类型占位而不是丢弃
+
+
+
     now = _now()
     reader_store["wxid_c"] = [FakeMessage(now - 10, "wxid_c", "嗨", server_id="20")]
     cid = client.post("/api/wechat/bind", json={

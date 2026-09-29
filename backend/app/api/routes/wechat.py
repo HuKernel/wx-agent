@@ -81,19 +81,40 @@ def _msg_server_id(m) -> str:
     ).hexdigest()
 
 
+# 库里引用消息原文形如 "[引用 wxid_xxx: 被引文本] ↳svrid:123 @2026-09-29 正文"
+_quote_re = re.compile(r"\[引用 \S+: ([^\]]*)\] ↳svrid:\d+ @[\d-]+\s*")
+_type_placeholder = {3: "[图片]", 34: "[语音]", 43: "[视频]"}
+
+
+def _clean_content(m) -> str:
+    """消息正文清理：表情 md5 简化、引用格式去原始数据、空内容给类型占位。"""
+    text = (m.content or "").strip()
+    if m.msg_type == 47 or text.startswith("[表情#"):
+        return "[表情]"
+    text = _quote_re.sub(r"[引用：\1] ", text)
+    return text or _type_placeholder.get(m.msg_type, "")
+
+
+def _is_self(account_id: str, sender: str) -> bool:
+    # 与 chatlog-keeper 导出层同判法（前缀匹配）：账号目录名可带 "_5305" 之类
+    # 多开后缀，消息表里的 sender 是裸 wxid，直接相等比较会把"我"全判成对方
+    return bool(account_id and sender and account_id.startswith(sender))
+
+
 def _insert_messages(conn, conversation_id: str, account_id: str, msgs: list) -> int:
     """INSERT OR IGNORE 幂等写入，返回新插入条数。"""
     inserted = 0
     for m in msgs:
-        if not m.content or not m.content.strip():
+        content = _clean_content(m)
+        if not content:
             continue
-        role = "me" if m.sender == account_id else "them"
+        role = "me" if _is_self(account_id, m.sender) else "them"
         created_at = datetime.fromtimestamp(m.timestamp.timestamp()).isoformat()
         cur = conn.execute(
             "INSERT OR IGNORE INTO messages"
             " (conversation_id, role, text, created_at, wechat_server_id)"
             " VALUES (?, ?, ?, ?, ?)",
-            (conversation_id, role, m.content, created_at, _msg_server_id(m)),
+            (conversation_id, role, content, created_at, _msg_server_id(m)),
         )
         inserted += cur.rowcount
     return inserted
@@ -276,7 +297,7 @@ def sync(req: SyncRequest) -> dict:
                 " updated_at = ? WHERE id = ?",
                 (last_ts, utcnow(), row["id"]),
             )
-            last_role = "me" if msgs[-1].sender == account_id else "them"
+            last_role = "me" if _is_self(account_id, msgs[-1].sender) else "them"
             updated.append({
                 "conversation_id": row["id"],
                 "new_count": inserted,
