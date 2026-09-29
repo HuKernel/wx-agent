@@ -10,7 +10,8 @@
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json --composite false && tsc --noEmit -p tsconfig.web.json --composite false",
     "build:backend": "cd ..\\backend && .venv\\Scripts\\python.exe -m PyInstaller --noconfirm --clean --onedir --name emora-backend --collect-submodules uvicorn --collect-data chatlog_keeper run.py",
-    "dist": "npm run build && electron-builder --win"
+    "dist": "npm run build && electron-builder --win",
+    "dist:dir": "npm run build && electron-builder --win --dir"
   },
   "build": {
     "appId": "ai.emora.desktop",
