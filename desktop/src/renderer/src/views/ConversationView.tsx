@@ -176,6 +176,15 @@ export default function ConversationView(): React.JSX.Element {
     })
   }, [importMessages])
 
+  // 微信直读同步 → 主进程已写库并触发分析，这里只需刷新视图
+  useEffect(() => {
+    if (typeof window.emora === 'undefined') return
+    return window.emora.onWechatDirectUpdated((conversationIds) => {
+      void refreshList(false)
+      if (activeId && conversationIds.includes(activeId)) void loadDetail(activeId)
+    })
+  }, [refreshList, loadDetail, activeId])
+
   /** 手动粘贴导入：有合并格式走解析；纯文本作为对方消息加入当前会话。 */
   const manualImport = async (): Promise<void> => {
     if (typeof window.emora === 'undefined' || !detail) return

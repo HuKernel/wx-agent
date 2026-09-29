@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Bot, Brain, Check, MessageCircleHeart, Trash2 } from 'lucide-react'
+import { Bot, Brain, Check, Link2Off, MessageCircleHeart, Radio, Trash2 } from 'lucide-react'
 import type { EmoraSettings } from '../types/emora'
-import { api, memoryKindLabel, type ApiMemory } from '../lib/api'
+import { api, memoryKindLabel, type ApiMemory, type ApiWechatConversation } from '../lib/api'
+import type { ApiConversationSummary } from '../types/analysis'
 
 function MemorySection(): React.JSX.Element {
   const [memories, setMemories] = useState<ApiMemory[] | null>(null)
@@ -70,6 +71,220 @@ function MemorySection(): React.JSX.Element {
   )
 }
 
+function WechatDirectSection(props: {
+  dataRoot: string
+  directOn: boolean
+  onPersist: (next: { wechatDirect?: boolean; wechatDataRoot?: string }) => Promise<void>
+}): React.JSX.Element {
+  const { dataRoot, directOn, onPersist } = props
+  const [keyOk, setKeyOk] = useState<boolean | null>(null)
+  const [extracting, setExtracting] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [convs, setConvs] = useState<ApiWechatConversation[] | null>(null)
+  const [bound, setBound] = useState<ApiConversationSummary[]>([])
+
+  const refreshStatus = async (): Promise<void> => {
+    setKeyOk(null)
+    try {
+      const s = await api.wechatStatus(dataRoot)
+      setKeyOk(s.key_ok)
+    } catch {
+      setKeyOk(false)
+    }
+  }
+  const reloadBound = async (): Promise<void> => {
+    try {
+      setBound((await api.listConversations()).filter((c) => c.wechat_chat_id))
+    } catch {
+      // 列表失败不阻塞区块
+    }
+  }
+
+  useEffect(() => {
+    void refreshStatus()
+    void reloadBound()
+  }, [dataRoot])
+
+  const extract = async (): Promise<void> => {
+    if (!window.confirm('提取过程会自动重启一次微信（约 1-2 分钟，期间勿操作微信），继续？')) return
+    setExtracting(true)
+    setError(null)
+    try {
+      await api.wechatExtractKey(dataRoot)
+      await refreshStatus()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '提取失败')
+    } finally {
+      setExtracting(false)
+    }
+  }
+
+  const loadConvs = async (): Promise<void> => {
+    setBusy(true)
+    setError(null)
+    try {
+      setConvs(await api.wechatConversations(dataRoot))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '会话列表读取失败')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const bind = async (c: ApiWechatConversation): Promise<void> => {
+    setBusy(true)
+    setError(null)
+    try {
+      await api.wechatBind({
+        data_root: dataRoot || null,
+        chat_id: c.chat_id,
+        display_name: c.display_name,
+        relationship: '朋友'
+      })
+      await reloadBound()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '绑定失败')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const unbind = async (c: ApiConversationSummary): Promise<void> => {
+    await api.wechatUnbind(c.id)
+    await reloadBound()
+  }
+
+  return (
+    <section className="space-y-4 rounded-2xl border border-border bg-card p-5">
+      <h2 className="flex items-center gap-2 font-medium">
+        <Radio className="h-4.5 w-4.5 text-primary" aria-hidden />
+        微信实时同步（实验）
+        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+          直接读取本机微信数据库
+        </span>
+      </h2>
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        实验功能：解密密钥与聊天数据仅保存在本机，不上传；微信版本更新后可能需要重新提取密钥。
+      </p>
+
+      <label className="block">
+        <span className="mb-1.5 block text-sm font-medium">微信数据目录</span>
+        <input
+          value={dataRoot}
+          onChange={(e) => onPersist({ wechatDataRoot: e.target.value })}
+          onBlur={(e) => onPersist({ wechatDataRoot: e.target.value.trim() })}
+          placeholder="留空自动探测；迁移过目录时填写 xwechat_files 所在路径"
+          className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition-shadow duration-200 focus:border-primary/50"
+        />
+      </label>
+
+      <div className="flex items-center gap-3">
+        <span className={`text-sm ${keyOk === null ? 'text-muted-foreground' : keyOk ? 'text-primary' : 'text-destructive'}`}>
+          {keyOk === null ? '检测中…' : keyOk ? '密钥可用' : '尚未提取密钥'}
+        </span>
+        {keyOk !== true && (
+          <button
+            type="button"
+            onClick={extract}
+            disabled={extracting}
+            className="cursor-pointer rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity duration-200 hover:opacity-90 disabled:cursor-default disabled:opacity-40"
+          >
+            {extracting ? '提取中（微信将重启一次）…' : '提取解密密钥'}
+          </button>
+        )}
+      </div>
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      {keyOk === true && (
+        <>
+          <label className="flex cursor-pointer items-center gap-2.5">
+            <input
+              type="checkbox"
+              checked={directOn}
+              onChange={(e) => onPersist({ wechatDirect: e.target.checked })}
+              className="h-4 w-4 cursor-pointer accent-[#7c3aed]"
+            />
+            <span className="text-sm">
+              自动同步并分析新消息
+              <span className="block text-xs text-muted-foreground">
+                绑定的会话收到对方新消息时自动导入并生成回复建议
+              </span>
+            </span>
+          </label>
+
+          {bound.length > 0 && (
+            <div className="space-y-1.5">
+              <span className="text-sm font-medium">已同步的会话</span>
+              {bound.map((c) => (
+                <div
+                  key={c.id}
+                  className="flex items-center justify-between rounded-xl border border-border bg-background px-3 py-2"
+                >
+                  <span className="text-sm">
+                    {c.contact_name}
+                    <span className="ml-2 text-xs text-muted-foreground">{c.message_count} 条</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => unbind(c)}
+                    aria-label={`停止同步 ${c.contact_name}`}
+                    title="停止同步（保留已导入的消息）"
+                    className="cursor-pointer rounded-lg p-1.5 text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-destructive"
+                  >
+                    <Link2Off className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div>
+            <button
+              type="button"
+              onClick={loadConvs}
+              disabled={busy}
+              className="cursor-pointer rounded-xl border border-border px-4 py-2 text-sm transition-colors duration-200 hover:bg-muted disabled:cursor-default disabled:opacity-40"
+            >
+              {convs === null ? '选择要同步的微信会话…' : '刷新会话列表'}
+            </button>
+          </div>
+
+          {convs !== null && (
+            <ul className="max-h-64 space-y-1.5 overflow-y-auto">
+              {convs.map((c) => {
+                const isBound = bound.some((b) => b.wechat_chat_id === c.chat_id)
+                return (
+                  <li
+                    key={c.chat_id}
+                    className="flex items-center justify-between rounded-xl border border-border bg-background px-3 py-2"
+                  >
+                    <span className="text-sm">
+                      {c.display_name}
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {c.message_count} 条消息
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => bind(c)}
+                      disabled={isBound || busy}
+                      className="cursor-pointer rounded-lg border border-border px-3 py-1 text-xs transition-colors duration-200 hover:bg-muted disabled:cursor-default disabled:opacity-40"
+                    >
+                      {isBound ? '已同步' : '同步'}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </>
+      )}
+    </section>
+  )
+}
+
 export default function SettingsView(): React.JSX.Element {
   const [settings, setSettings] = useState<EmoraSettings | null>(null)
   const [baseUrl, setBaseUrl] = useState('')
@@ -80,6 +295,23 @@ export default function SettingsView(): React.JSX.Element {
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
 
+  // 直读区块独立管理（提取/绑定即时执行；开关和目录即时保存生效）
+  const [wechatDirect, setWechatDirect] = useState(false)
+  const [wechatDataRoot, setWechatDataRoot] = useState('')
+
+  const persistDirect = async (next: { wechatDirect?: boolean; wechatDataRoot?: string }) => {
+    await window.emora.saveSettings({
+      baseUrl,
+      model,
+      wechatName,
+      clipboardWatch,
+      wechatDirect: next.wechatDirect ?? wechatDirect,
+      wechatDataRoot: next.wechatDataRoot ?? wechatDataRoot
+    })
+    if (next.wechatDirect !== undefined) setWechatDirect(next.wechatDirect)
+    if (next.wechatDataRoot !== undefined) setWechatDataRoot(next.wechatDataRoot)
+  }
+
   useEffect(() => {
     window.emora.getSettings().then((s) => {
       setSettings(s)
@@ -87,6 +319,8 @@ export default function SettingsView(): React.JSX.Element {
       setModel(s.model)
       setWechatName(s.wechatName)
       setClipboardWatch(s.clipboardWatch)
+      setWechatDirect(s.wechatDirect)
+      setWechatDataRoot(s.wechatDataRoot)
     })
   }, [])
 
@@ -211,6 +445,12 @@ export default function SettingsView(): React.JSX.Element {
             </span>
           </label>
         </section>
+
+        <WechatDirectSection
+          dataRoot={wechatDataRoot}
+          directOn={wechatDirect}
+          onPersist={persistDirect}
+        />
 
         <MemorySection />
       </div>

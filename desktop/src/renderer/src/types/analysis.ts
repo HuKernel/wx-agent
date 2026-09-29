@@ -62,6 +62,7 @@ export interface ApiConversationSummary {
   message_count: number
   latest_analysis: AnalysisResult | null
   updated_at: string
+  wechat_chat_id: string | null
 }
 
 export interface ApiConversationDetail extends ApiConversationSummary {

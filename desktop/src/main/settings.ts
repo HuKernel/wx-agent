@@ -12,6 +12,8 @@ export interface PublicSettings {
   apiKeyTail: string | null
   wechatName: string
   clipboardWatch: boolean
+  wechatDirect: boolean
+  wechatDataRoot: string
 }
 
 interface SaveInput {
@@ -21,6 +23,8 @@ interface SaveInput {
   apiKey?: string
   wechatName?: string
   clipboardWatch?: boolean
+  wechatDirect?: boolean
+  wechatDataRoot?: string
 }
 
 interface SettingsFile {
@@ -30,6 +34,8 @@ interface SettingsFile {
   apiKeyEnc?: string
   wechatName?: string
   clipboardWatch?: boolean
+  wechatDirect?: boolean
+  wechatDataRoot?: string
 }
 
 function settingsPath(): string {
@@ -64,7 +70,9 @@ export function getSettings(): PublicSettings {
     hasApiKey: key !== null,
     apiKeyTail: key ? key.slice(-4) : null,
     wechatName: file.wechatName ?? '',
-    clipboardWatch: file.clipboardWatch ?? true
+    clipboardWatch: file.clipboardWatch ?? true,
+    wechatDirect: file.wechatDirect ?? false,
+    wechatDataRoot: file.wechatDataRoot ?? ''
   }
 }
 
@@ -85,5 +93,7 @@ export function saveSettings(input: SaveInput): void {
   file.model = input.model.trim()
   if (input.wechatName !== undefined) file.wechatName = input.wechatName.trim()
   if (input.clipboardWatch !== undefined) file.clipboardWatch = input.clipboardWatch
+  if (input.wechatDirect !== undefined) file.wechatDirect = input.wechatDirect
+  if (input.wechatDataRoot !== undefined) file.wechatDataRoot = input.wechatDataRoot.trim()
   writeFileSync(settingsPath(), JSON.stringify(file, null, 2), 'utf-8')
 }

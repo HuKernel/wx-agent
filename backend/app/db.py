@@ -50,6 +50,23 @@ def connect() -> sqlite3.Connection:
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
+        # 微信直读（第 23 次）加列；PRAGMA 判断保证旧库平滑迁移
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(conversations)")}
+        if "wechat_chat_id" not in cols:
+            conn.execute("ALTER TABLE conversations ADD COLUMN wechat_chat_id TEXT")
+            conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_conv_wechat"
+                " ON conversations(wechat_chat_id) WHERE wechat_chat_id IS NOT NULL"
+            )
+        if "wechat_cursor" not in cols:
+            conn.execute("ALTER TABLE conversations ADD COLUMN wechat_cursor REAL NOT NULL DEFAULT 0")
+        mcols = {r[1] for r in conn.execute("PRAGMA table_info(messages)")}
+        if "wechat_server_id" not in mcols:
+            conn.execute("ALTER TABLE messages ADD COLUMN wechat_server_id TEXT")
+            conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_msg_wechat_sid"
+                " ON messages(wechat_server_id) WHERE wechat_server_id IS NOT NULL"
+            )
 
 
 def utcnow() -> str:

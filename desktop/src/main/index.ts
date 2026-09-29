@@ -4,6 +4,7 @@ import { getSettings, saveSettings } from './settings'
 import { analyzeConversation, type AnalyzePayload } from './analyze'
 import { getBackendUrl, startBackend, stopBackend } from './backend'
 import { readClipboardForImport, startClipboardWatch } from './wechat-clipboard'
+import { startWechatDirectWatch } from './wechat-direct'
 
 // Electron 默认菜单为英文硬编码，这里替换为中文菜单
 function setupMenu(): void {
@@ -74,11 +75,15 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('backend-url', () => getBackendUrl())
   ipcMain.handle('settings:get', () => getSettings())
-  ipcMain.handle('settings:save', (_e, input) => saveSettings(input))
+  ipcMain.handle('settings:save', (_e, input) => {
+    saveSettings(input)
+    startWechatDirectWatch() // 开关或数据目录可能变了；内部自判 wechatDirect
+  })
   ipcMain.handle('analyze', (_e, payload: AnalyzePayload) => analyzeConversation(payload))
   ipcMain.handle('clipboard:read-import', () => readClipboardForImport())
 
   startClipboardWatch()
+  startWechatDirectWatch()
   createWindow()
 
   app.on('activate', () => {

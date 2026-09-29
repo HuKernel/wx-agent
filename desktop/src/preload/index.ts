@@ -21,6 +21,11 @@ const api = {
     ): void => callback(payload)
     ipcRenderer.on('wechat-import', listener)
     return () => ipcRenderer.removeListener('wechat-import', listener)
+  },
+  onWechatDirectUpdated: (callback: (conversationIds: string[]) => void): (() => void) => {
+    const listener = (_e: unknown, conversationIds: string[]): void => callback(conversationIds)
+    ipcRenderer.on('wechat-direct-updated', listener)
+    return () => ipcRenderer.removeListener('wechat-direct-updated', listener)
   }
 }
 

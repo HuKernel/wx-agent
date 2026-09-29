@@ -71,7 +71,46 @@ export const api = {
   listMemories: (): Promise<ApiMemory[]> => request('/memories'),
 
   deleteMemory: (memoryId: number): Promise<void> =>
-    request(`/memories/${memoryId}`, { method: 'DELETE' })
+    request(`/memories/${memoryId}`, { method: 'DELETE' }),
+
+  // ── 微信本地库直读（实验功能）──
+  wechatStatus: (dataRoot: string): Promise<ApiWechatStatus> =>
+    request(`/wechat/status?data_root=${encodeURIComponent(dataRoot || '')}`),
+
+  wechatExtractKey: (dataRoot: string): Promise<{ ok: boolean }> =>
+    request('/wechat/extract-key', {
+      method: 'POST',
+      body: JSON.stringify({ data_root: dataRoot || null })
+    }),
+
+  wechatConversations: (dataRoot: string): Promise<ApiWechatConversation[]> =>
+    request(`/wechat/conversations?data_root=${encodeURIComponent(dataRoot || '')}`),
+
+  wechatBind: (body: {
+    data_root: string | null
+    chat_id: string
+    display_name: string
+    relationship: string
+  }): Promise<{ conversation_id: string; already_bound: boolean; backfilled: number }> =>
+    request('/wechat/bind', { method: 'POST', body: JSON.stringify(body) }),
+
+  wechatUnbind: (conversationId: string): Promise<{ ok: boolean }> =>
+    request('/wechat/unbind', {
+      method: 'POST',
+      body: JSON.stringify({ conversation_id: conversationId })
+    })
+}
+
+export interface ApiWechatStatus {
+  key_ok: boolean
+  account_id?: string
+  wxid_dir?: string | null
+}
+
+export interface ApiWechatConversation {
+  chat_id: string
+  display_name: string
+  message_count: number
 }
 
 export interface ApiMemory {

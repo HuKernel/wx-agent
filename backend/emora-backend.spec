@@ -1,7 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_data_files
 from PyInstaller.utils.hooks import collect_submodules
 
+datas = []
 hiddenimports = []
+datas += collect_data_files('chatlog_keeper')
 hiddenimports += collect_submodules('uvicorn')
 
 
@@ -9,7 +12,7 @@ a = Analysis(
     ['run.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},

@@ -7,6 +7,8 @@ export interface EmoraSettings {
   apiKeyTail: string | null
   wechatName: string
   clipboardWatch: boolean
+  wechatDirect: boolean
+  wechatDataRoot: string
 }
 
 export interface WechatImportPayload {
@@ -30,6 +32,8 @@ export interface EmoraApi {
     apiKey?: string
     wechatName?: string
     clipboardWatch?: boolean
+    wechatDirect?: boolean
+    wechatDataRoot?: string
   }): Promise<void>
   analyze(payload: {
     conversationId: string
@@ -38,6 +42,7 @@ export interface EmoraApi {
   }): Promise<AnalysisResult>
   readClipboardForImport(): Promise<{ parsed: WechatParseResult; raw: string }>
   onWechatImport(callback: (payload: WechatImportPayload) => void): () => void
+  onWechatDirectUpdated(callback: (conversationIds: string[]) => void): () => void
 }
 
 declare global {
