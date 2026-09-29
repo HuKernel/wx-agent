@@ -84,6 +84,8 @@ function WechatDirectSection(props: {
   const [error, setError] = useState<string | null>(null)
   const [convs, setConvs] = useState<ApiWechatConversation[] | null>(null)
   const [bound, setBound] = useState<ApiConversationSummary[]>([])
+  // 输入框本地值，失焦才保存：避免逐字符触发保存+状态请求竞态
+  const [rootDraft, setRootDraft] = useState(dataRoot)
 
   const refreshStatus = async (): Promise<void> => {
     setKeyOk(null)
@@ -105,8 +107,30 @@ function WechatDirectSection(props: {
   }
 
   useEffect(() => {
-    void refreshStatus()
+    // 竞态防护：mount 时会先用初始空串跑一次，随后 dataRoot 才到位；
+    // 空目录探测请求更慢，若不丢弃旧响应会把已显示的正常状态覆盖成黄字
+    let stale = false
+    const run = async (): Promise<void> => {
+      setKeyOk(null)
+      setDirValid(null)
+      try {
+        const s = await api.wechatStatus(dataRoot)
+        if (stale) return
+        setKeyOk(s.key_ok)
+        setDirValid(s.key_ok ? (s.dir_valid ?? true) : null)
+      } catch {
+        if (!stale) setKeyOk(false)
+      }
+    }
+    void run()
     void reloadBound()
+    return () => {
+      stale = true
+    }
+  }, [dataRoot])
+
+  useEffect(() => {
+    setRootDraft(dataRoot)
   }, [dataRoot])
 
   const extract = async (): Promise<void> => {
@@ -174,9 +198,13 @@ function WechatDirectSection(props: {
       <label className="block">
         <span className="mb-1.5 block text-sm font-medium">微信数据目录</span>
         <input
-          value={dataRoot}
-          onChange={(e) => onPersist({ wechatDataRoot: e.target.value })}
-          onBlur={(e) => onPersist({ wechatDataRoot: e.target.value.trim() })}
+          value={rootDraft}
+          onChange={(e) => setRootDraft(e.target.value)}
+          onBlur={() => {
+            const v = rootDraft.trim()
+            setRootDraft(v)
+            if (v !== dataRoot) onPersist({ wechatDataRoot: v })
+          }}
           placeholder="留空自动探测；自动探测到旧版目录时会在这里提示，需手动填写 xwechat_files 路径"
           className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition-shadow duration-200 focus:border-primary/50"
         />
