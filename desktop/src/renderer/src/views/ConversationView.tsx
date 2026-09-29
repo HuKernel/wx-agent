@@ -181,7 +181,11 @@ export default function ConversationView(): React.JSX.Element {
     if (typeof window.emora === 'undefined' || !detail) return
     try {
       const { parsed, raw } = await window.emora.readClipboardForImport()
-      if (parsed) {
+      if (parsed && 'ambiguous' in parsed) {
+        setError(
+          `检测到多个昵称（${parsed.names.join('、')}），请先在「设置 → 微信导入」填写你的微信昵称后再导入`
+        )
+      } else if (parsed) {
         await importMessages(parsed.contactName, parsed.messages)
       } else if (raw.trim()) {
         await api.addMessage(detail.id, { role: 'them', text: raw.trim() })

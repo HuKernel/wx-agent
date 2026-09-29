@@ -14,6 +14,13 @@ export interface WechatImportPayload {
   messages: { role: 'them' | 'me'; text: string }[]
 }
 
+export interface AmbiguousWechatImport {
+  ambiguous: true
+  names: string[]
+}
+
+export type WechatParseResult = WechatImportPayload | AmbiguousWechatImport | null
+
 export interface EmoraApi {
   getBackendUrl(): Promise<string>
   getSettings(): Promise<EmoraSettings>
@@ -29,7 +36,7 @@ export interface EmoraApi {
     relationship: string
     messages: Pick<ChatMessage, 'role' | 'text'>[]
   }): Promise<AnalysisResult>
-  readClipboardForImport(): Promise<{ parsed: WechatImportPayload | null; raw: string }>
+  readClipboardForImport(): Promise<{ parsed: WechatParseResult; raw: string }>
   onWechatImport(callback: (payload: WechatImportPayload) => void): () => void
 }
 

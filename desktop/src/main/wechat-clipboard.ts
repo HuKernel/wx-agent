@@ -2,7 +2,7 @@ import { BrowserWindow, clipboard } from 'electron'
 import { parseWechatText } from './wechat-parse'
 import { getSettings } from './settings'
 
-// 剪贴板桥：轮询检测微信「多选合并复制」格式，解析成功推送给渲染进程。
+// 剪贴板桥：轮询检测微信复制格式，解析成功推送给渲染进程。
 // 单条纯文本复制无格式头，不走自动导入（由会话页「粘贴导入」按钮手动触发）。
 
 const POLL_MS = 1200
@@ -16,7 +16,7 @@ async function readAndDispatch(): Promise<void> {
   lastText = text
 
   const parsed = parseWechatText(text, getSettings().wechatName)
-  if (!parsed) return
+  if (!parsed || 'ambiguous' in parsed) return
 
   const win = BrowserWindow.getAllWindows()[0]
   win?.webContents.send('wechat-import', parsed)
