@@ -5,12 +5,23 @@ import type {
 } from '../types/analysis'
 
 // 对话数据直连本地后端（无敏感信息）；模型配置/密钥走 IPC（window.emora）。
-const BASE = 'http://127.0.0.1:8000/api'
+// 后端地址由主进程决定（sidecar 随机端口 / dev 固定 8000），经 IPC 获取后缓存。
+let cachedBase: string | null = null
+
+async function base(): Promise<string> {
+  if (cachedBase) return cachedBase
+  const url =
+    typeof window.emora !== 'undefined'
+      ? await window.emora.getBackendUrl()
+      : 'http://127.0.0.1:8000' // 浏览器冒烟 fallback
+  cachedBase = `${url}/api`
+  return cachedBase
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let resp: Response
   try {
-    resp = await fetch(BASE + path, {
+    resp = await fetch((await base()) + path, {
       headers: { 'Content-Type': 'application/json' },
       ...init
     })

@@ -8,6 +8,7 @@ export interface EmoraSettings {
 }
 
 export interface EmoraApi {
+  getBackendUrl(): Promise<string>
   getSettings(): Promise<EmoraSettings>
   saveSettings(input: { baseUrl: string; model: string; apiKey?: string }): Promise<void>
   analyze(payload: {

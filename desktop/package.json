@@ -8,7 +8,33 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.node.json --composite false && tsc --noEmit -p tsconfig.web.json --composite false"
+    "typecheck": "tsc --noEmit -p tsconfig.node.json --composite false && tsc --noEmit -p tsconfig.web.json --composite false",
+    "build:backend": "cd ../backend && .venv/Scripts/python -m PyInstaller --noconfirm --clean --onedir --name emora-backend --collect-submodules uvicorn run.py",
+    "dist": "npm run build && electron-builder --win"
+  },
+  "build": {
+    "appId": "ai.emora.desktop",
+    "productName": "Emora AI",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend/dist/emora-backend",
+        "to": "sidecar/emora-backend"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": true
+    }
   },
   "dependencies": {
     "lucide-react": "^1.48.0",
@@ -22,6 +48,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "^44.4.5",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",

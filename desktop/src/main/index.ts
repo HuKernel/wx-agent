@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { getSettings, saveSettings } from './settings'
 import { analyzeConversation, type AnalyzePayload } from './analyze'
+import { getBackendUrl, startBackend, stopBackend } from './backend'
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -21,7 +22,10 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  await startBackend()
+
+  ipcMain.handle('backend-url', () => getBackendUrl())
   ipcMain.handle('settings:get', () => getSettings())
   ipcMain.handle('settings:save', (_e, input) => saveSettings(input))
   ipcMain.handle('analyze', (_e, payload: AnalyzePayload) => analyzeConversation(payload))
@@ -35,4 +39,8 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
+})
+
+app.on('will-quit', () => {
+  stopBackend()
 })

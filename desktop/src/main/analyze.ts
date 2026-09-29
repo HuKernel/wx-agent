@@ -1,7 +1,5 @@
+import { getBackendUrl } from './backend'
 import { getLLMConfig } from './settings'
-
-// Phase 6 打包阶段此地址可能改为 sidecar 动态端口，当前固定本地开发端口。
-const BACKEND_URL = 'http://127.0.0.1:8000'
 
 export interface AnalyzePayload {
   conversationId: string
@@ -17,7 +15,7 @@ export async function analyzeConversation(payload: AnalyzePayload): Promise<unkn
 
   let resp: Response
   try {
-    resp = await fetch(`${BACKEND_URL}/api/analyze`, {
+    resp = await fetch(`${getBackendUrl()}/api/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
