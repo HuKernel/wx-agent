@@ -11,6 +11,7 @@ export interface EmoraApi {
   getSettings(): Promise<EmoraSettings>
   saveSettings(input: { baseUrl: string; model: string; apiKey?: string }): Promise<void>
   analyze(payload: {
+    conversationId: string
     relationship: string
     messages: Pick<ChatMessage, 'role' | 'text'>[]
   }): Promise<AnalysisResult>

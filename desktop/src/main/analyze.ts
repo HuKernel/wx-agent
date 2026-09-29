@@ -4,6 +4,7 @@ import { getLLMConfig } from './settings'
 const BACKEND_URL = 'http://127.0.0.1:8000'
 
 export interface AnalyzePayload {
+  conversationId: string
   relationship: string
   messages: { role: 'them' | 'me'; text: string }[]
 }
@@ -22,7 +23,8 @@ export async function analyzeConversation(payload: AnalyzePayload): Promise<unkn
       body: JSON.stringify({
         llm: { base_url: llm.baseUrl, api_key: llm.apiKey, model: llm.model },
         relationship: payload.relationship,
-        messages: payload.messages
+        messages: payload.messages,
+        conversation_id: payload.conversationId
       })
     })
   } catch {

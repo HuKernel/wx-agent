@@ -1,13 +1,26 @@
-import type { ChatMessage } from '../../types/analysis'
+import { X } from 'lucide-react'
+import { formatTime } from '../../lib/api'
+import type { ApiMessage } from '../../types/analysis'
 
 interface MessageBubbleProps {
-  message: ChatMessage
+  message: ApiMessage
+  onDelete?: (messageId: number) => void
 }
 
-export default function MessageBubble({ message }: MessageBubbleProps): React.JSX.Element {
+export default function MessageBubble({ message, onDelete }: MessageBubbleProps): React.JSX.Element {
   const isMine = message.role === 'me'
   return (
-    <div className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+    <div className={`group flex items-center gap-1.5 ${isMine ? 'justify-end' : 'justify-start'}`}>
+      {onDelete && (
+        <button
+          type="button"
+          onClick={() => onDelete(message.id)}
+          aria-label="删除消息"
+          className="hidden cursor-pointer rounded-lg p-1 text-muted-foreground transition-colors duration-200 hover:text-destructive group-hover:block"
+        >
+          <X className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      )}
       <div
         className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
           isMine
@@ -19,7 +32,7 @@ export default function MessageBubble({ message }: MessageBubbleProps): React.JS
         <span
           className={`mt-1 block text-right text-xs ${isMine ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}
         >
-          {message.time}
+          {formatTime(message.created_at)}
         </span>
       </div>
     </div>

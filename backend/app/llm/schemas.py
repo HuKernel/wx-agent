@@ -18,6 +18,8 @@ class AnalyzeRequest(BaseModel):
     llm: LLMConfig
     relationship: str
     messages: list[ChatMsg]
+    """提供时分析结果会持久化到该对话"""
+    conversation_id: str | None = None
 
 
 class EmotionAnalysis(BaseModel):

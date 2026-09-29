@@ -41,3 +41,26 @@ export const replyStyleLabel: Record<ReplyStyle, string> = {
   casual: '随意',
   deep: '深入'
 }
+
+// ---- 后端 API 数据结构（snake_case 与后端一致）----
+
+export interface ApiMessage {
+  id: number
+  role: 'them' | 'me'
+  text: string
+  created_at: string
+}
+
+export interface ApiConversationSummary {
+  id: string
+  contact_name: string
+  relationship: string
+  last_text: string | null
+  message_count: number
+  latest_analysis: AnalysisResult | null
+  updated_at: string
+}
+
+export interface ApiConversationDetail extends ApiConversationSummary {
+  messages: ApiMessage[]
+}
