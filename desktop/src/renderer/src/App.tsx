@@ -1,11 +1,16 @@
+import { useState } from 'react'
+import AppShell from './components/AppShell'
+import type { View } from './components/Sidebar'
+import ConversationView from './views/ConversationView'
+import SettingsView from './views/SettingsView'
+
 function App() {
+  const [view, setView] = useState<View>('conversation')
+
   return (
-    <div className="flex h-screen items-center justify-center bg-slate-950">
-      <div className="text-center">
-        <h1 className="text-3xl font-semibold text-slate-100">Emora AI</h1>
-        <p className="mt-2 text-slate-400">AI 情商助手 · 项目初始化完成</p>
-      </div>
-    </div>
+    <AppShell view={view} onNavigate={setView}>
+      {view === 'conversation' ? <ConversationView /> : <SettingsView />}
+    </AppShell>
   )
 }
 
