@@ -6,7 +6,7 @@ export interface EmotionAnalysis {
   hidden_need: string
 }
 
-export type ReplyStyle = 'warm' | 'casual' | 'deep'
+export type ReplyStyle = 'warm' | 'casual' | 'deep' | 'flirty'
 
 export interface ReplyOption {
   style: ReplyStyle
@@ -41,7 +41,8 @@ export interface Conversation {
 export const replyStyleLabel: Record<ReplyStyle, string> = {
   warm: '温暖',
   casual: '随意',
-  deep: '深入'
+  deep: '深入',
+  flirty: '撩'
 }
 
 // ---- 后端 API 数据结构（snake_case 与后端一致）----

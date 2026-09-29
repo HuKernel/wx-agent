@@ -29,7 +29,7 @@ class EmotionAnalysis(BaseModel):
 
 
 class ReplyOption(BaseModel):
-    style: str = Field(pattern="^(warm|casual|deep)$")
+    style: str = Field(pattern="^(warm|casual|deep|flirty)$")
     reply: str
     """预判对方收到后的反应，帮用户选择"""
     expected_reaction: str = ""
