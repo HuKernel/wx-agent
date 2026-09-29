@@ -10,6 +10,8 @@ export interface PublicSettings {
   model: string
   hasApiKey: boolean
   apiKeyTail: string | null
+  wechatName: string
+  clipboardWatch: boolean
 }
 
 interface SaveInput {
@@ -17,6 +19,8 @@ interface SaveInput {
   model: string
   /** 空字符串表示保留已存密钥 */
   apiKey?: string
+  wechatName?: string
+  clipboardWatch?: boolean
 }
 
 interface SettingsFile {
@@ -24,6 +28,8 @@ interface SettingsFile {
   model: string
   /** safeStorage.encryptString 的 base64 */
   apiKeyEnc?: string
+  wechatName?: string
+  clipboardWatch?: boolean
 }
 
 function settingsPath(): string {
@@ -56,7 +62,9 @@ export function getSettings(): PublicSettings {
     baseUrl: file.baseUrl,
     model: file.model,
     hasApiKey: key !== null,
-    apiKeyTail: key ? key.slice(-4) : null
+    apiKeyTail: key ? key.slice(-4) : null,
+    wechatName: file.wechatName ?? '',
+    clipboardWatch: file.clipboardWatch ?? true
   }
 }
 
@@ -75,5 +83,7 @@ export function saveSettings(input: SaveInput): void {
   }
   file.baseUrl = input.baseUrl.trim()
   file.model = input.model.trim()
+  if (input.wechatName !== undefined) file.wechatName = input.wechatName.trim()
+  if (input.clipboardWatch !== undefined) file.clipboardWatch = input.clipboardWatch
   writeFileSync(settingsPath(), JSON.stringify(file, null, 2), 'utf-8')
 }

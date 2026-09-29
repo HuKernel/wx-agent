@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bot, Brain, Check, Trash2 } from 'lucide-react'
+import { Bot, Brain, Check, MessageCircleHeart, Trash2 } from 'lucide-react'
 import type { EmoraSettings } from '../types/emora'
 import { api, memoryKindLabel, type ApiMemory } from '../lib/api'
 
@@ -75,6 +75,8 @@ export default function SettingsView(): React.JSX.Element {
   const [baseUrl, setBaseUrl] = useState('')
   const [model, setModel] = useState('')
   const [apiKey, setApiKey] = useState('')
+  const [wechatName, setWechatName] = useState('')
+  const [clipboardWatch, setClipboardWatch] = useState(true)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -83,13 +85,21 @@ export default function SettingsView(): React.JSX.Element {
       setSettings(s)
       setBaseUrl(s.baseUrl)
       setModel(s.model)
+      setWechatName(s.wechatName)
+      setClipboardWatch(s.clipboardWatch)
     })
   }, [])
 
   const save = async (): Promise<void> => {
     setSaving(true)
     try {
-      await window.emora.saveSettings({ baseUrl, model, apiKey: apiKey.trim() })
+      await window.emora.saveSettings({
+        baseUrl,
+        model,
+        apiKey: apiKey.trim(),
+        wechatName,
+        clipboardWatch
+      })
       setSaved(true)
       setApiKey('')
       const s = await window.emora.getSettings()
@@ -168,6 +178,38 @@ export default function SettingsView(): React.JSX.Element {
               </span>
             )}
           </div>
+        </section>
+
+        <section className="space-y-4 rounded-2xl border border-border bg-card p-5">
+          <h2 className="flex items-center gap-2 font-medium">
+            <MessageCircleHeart className="h-4.5 w-4.5 text-primary" aria-hidden />
+            微信导入
+          </h2>
+
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium">我的微信昵称</span>
+            <input
+              value={wechatName}
+              onChange={(e) => setWechatName(e.target.value)}
+              placeholder="你在微信里的昵称（用于区分哪句是你说的）"
+              className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition-shadow duration-200 focus:border-primary/50"
+            />
+          </label>
+
+          <label className="flex cursor-pointer items-center gap-2.5">
+            <input
+              type="checkbox"
+              checked={clipboardWatch}
+              onChange={(e) => setClipboardWatch(e.target.checked)}
+              className="h-4 w-4 cursor-pointer accent-[#7c3aed]"
+            />
+            <span className="text-sm">
+              剪贴板自动导入
+              <span className="block text-xs text-muted-foreground">
+                在微信 PC 端多选消息复制后，Emora 自动识别并导入分析
+              </span>
+            </span>
+          </label>
         </section>
 
         <MemorySection />

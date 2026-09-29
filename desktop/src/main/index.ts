@@ -3,6 +3,7 @@ import { join } from 'path'
 import { getSettings, saveSettings } from './settings'
 import { analyzeConversation, type AnalyzePayload } from './analyze'
 import { getBackendUrl, startBackend, stopBackend } from './backend'
+import { readClipboardForImport, startClipboardWatch } from './wechat-clipboard'
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -29,7 +30,9 @@ app.whenReady().then(async () => {
   ipcMain.handle('settings:get', () => getSettings())
   ipcMain.handle('settings:save', (_e, input) => saveSettings(input))
   ipcMain.handle('analyze', (_e, payload: AnalyzePayload) => analyzeConversation(payload))
+  ipcMain.handle('clipboard:read-import', () => readClipboardForImport())
 
+  startClipboardWatch()
   createWindow()
 
   app.on('activate', () => {

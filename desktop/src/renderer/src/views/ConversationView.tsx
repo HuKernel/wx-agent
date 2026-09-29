@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Loader2, Send, Sparkles } from 'lucide-react'
+import { ClipboardPaste, Loader2, Send, Sparkles } from 'lucide-react'
 import ConversationList from '../components/conversation/ConversationList'
 import MessageBubble from '../components/conversation/MessageBubble'
 import EmotionPanel from '../components/conversation/EmotionPanel'
@@ -11,6 +11,23 @@ import type {
 } from '../types/analysis'
 
 type DraftRole = 'them' | 'me'
+
+/**
+ * 增量追加：incoming 头部与 existing 尾部有重叠则只取新增部分。
+ * 已知限制：incoming 是 existing 中间子序列时不去重（少见，靠 hover 删消息兜底）。
+ */
+function diffTail(
+  existing: { role: string; text: string }[],
+  incoming: { role: 'them' | 'me'; text: string }[]
+): { role: 'them' | 'me'; text: string }[] {
+  for (let k = Math.min(incoming.length, existing.length); k > 0; k--) {
+    const tail = existing.slice(-k)
+    if (tail.every((e, i) => e.role === incoming[i].role && e.text === incoming[i].text)) {
+      return incoming.slice(k)
+    }
+  }
+  return incoming
+}
 
 export default function ConversationView(): React.JSX.Element {
   const [summaries, setSummaries] = useState<ApiConversationSummary[]>([])
@@ -105,6 +122,77 @@ export default function ConversationView(): React.JSX.Element {
     }
   }
 
+  /** 微信导入核心：匹配/新建会话 → 增量追加 → 自动分析（最后一条是对方消息时）。 */
+  const importMessages = useCallback(
+    async (contactName: string, incoming: { role: 'them' | 'me'; text: string }[]): Promise<void> => {
+      if (!incoming.length) return
+      const list = await api.listConversations()
+      let conv = list.find((c) => c.contact_name === contactName)
+      if (!conv) {
+        const created = await api.createConversation({
+          contact_name: contactName,
+          relationship: '朋友'
+        })
+        conv = { id: created.id } as ApiConversationSummary
+      }
+
+      let current = await api.getConversation(conv.id)
+      const newMsgs = diffTail(current.messages, incoming)
+      for (const m of newMsgs) {
+        await api.addMessage(conv.id, m)
+      }
+      if (!newMsgs.length) return
+
+      setActiveId(conv.id)
+      current = await api.getConversation(conv.id)
+      setDetail(current)
+      await refreshList(false)
+
+      if (newMsgs[newMsgs.length - 1].role === 'them') {
+        setAnalyzing(true)
+        setError(null)
+        try {
+          const result = (await window.emora.analyze({
+            conversationId: conv.id,
+            relationship: current.relationship,
+            messages: current.messages.map((m) => ({ role: m.role, text: m.text }))
+          })) as AnalysisResult
+          setDetail({ ...current, latest_analysis: result })
+        } catch (e) {
+          setError(e instanceof Error ? e.message : '自动分析失败，可手动点击「AI 分析」重试')
+        } finally {
+          setAnalyzing(false)
+        }
+      }
+    },
+    [refreshList]
+  )
+
+  // 微信多选复制 → 剪贴板桥自动导入
+  useEffect(() => {
+    if (typeof window.emora === 'undefined') return
+    return window.emora.onWechatImport((payload) => {
+      void importMessages(payload.contactName, payload.messages)
+    })
+  }, [importMessages])
+
+  /** 手动粘贴导入：有合并格式走解析；纯文本作为对方消息加入当前会话。 */
+  const manualImport = async (): Promise<void> => {
+    if (typeof window.emora === 'undefined' || !detail) return
+    try {
+      const { parsed, raw } = await window.emora.readClipboardForImport()
+      if (parsed) {
+        await importMessages(parsed.contactName, parsed.messages)
+      } else if (raw.trim()) {
+        await api.addMessage(detail.id, { role: 'them', text: raw.trim() })
+        await loadDetail(detail.id)
+        await refreshList(false)
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '导入失败')
+    }
+  }
+
   const analysis = detail?.latest_analysis ?? null
 
   return (
@@ -133,19 +221,31 @@ export default function ConversationView(): React.JSX.Element {
                 <h1 className="font-semibold">{detail.contact_name}</h1>
                 <p className="text-xs text-muted-foreground">{detail.relationship}</p>
               </div>
-              <button
-                type="button"
-                onClick={analyze}
-                disabled={analyzing || detail.messages.length === 0}
-                className="flex cursor-pointer items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity duration-200 hover:opacity-90 disabled:cursor-default disabled:opacity-60"
-              >
-                {analyzing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                ) : (
-                  <Sparkles className="h-4 w-4" aria-hidden />
-                )}
-                {analyzing ? '分析中…' : 'AI 分析'}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={manualImport}
+                  aria-label="粘贴导入微信消息"
+                  title="粘贴导入：微信多选复制或单条复制后点此导入"
+                  className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground"
+                >
+                  <ClipboardPaste className="h-4 w-4" aria-hidden />
+                  粘贴导入
+                </button>
+                <button
+                  type="button"
+                  onClick={analyze}
+                  disabled={analyzing || detail.messages.length === 0}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity duration-200 hover:opacity-90 disabled:cursor-default disabled:opacity-60"
+                >
+                  {analyzing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  ) : (
+                    <Sparkles className="h-4 w-4" aria-hidden />
+                  )}
+                  {analyzing ? '分析中…' : 'AI 分析'}
+                </button>
+              </div>
             </header>
 
             <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
