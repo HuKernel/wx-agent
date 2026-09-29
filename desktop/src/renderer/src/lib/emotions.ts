@@ -24,8 +24,8 @@ const NEW_EMOJI: Record<string, string> = {
   红包: '🧧', 转发: '↗️'
 }
 
-// vite 静态资源：编号 → 构建后的 url
-const gifModules = import.meta.glob('../../assets/emotions/*.gif', {
+// vite 静态资源：编号 → 构建后的 url（emotions.ts 位于 src/renderer/src/lib，assets 在同级）
+const gifModules = import.meta.glob('../assets/emotions/*.gif', {
   eager: true,
   query: '?url',
   import: 'default'
