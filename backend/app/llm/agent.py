@@ -36,10 +36,11 @@ EXPLORE_SYSTEM = """你是情感分析任务的「上下文侦察员」。主分
 - get_contact_profile()：与该联系人的完整关系画像
 
 判断原则：
-- 常规闲聊、上下文自足 → 不要调用任何工具，直接回复 CONTEXT_READY
+- **先核对场景时间线**：结合「已知背景」对照最近消息——他们现在在哪、在干什么、为什么会聊这个？如果窗口本身说不清缘由（比如晚上在路上、突然情绪变化、提到"上次/那个事"），而更早消息里可能有线索，必须 fetch_earlier_messages 把中间那段拉出来看，别让主分析师猜错场景
+- 常规闲聊、场景清楚且上下文自足 → 不要调用任何工具，直接回复 CONTEXT_READY
 - 对话提到旧事/旧约/人物而你缺背景 → fetch_earlier_messages 或 search_memory
 - 需要关系全局判断（阶段、模式）→ get_contact_profile
-- 最多补充一轮材料就要收手。回复 CONTEXT_READY 时，用一段不超过 80 字的「侦察摘要」说明：这段对话的背景要点、对方最近的状态，以及你是否补到了新信息（工具返回的原文要点）。"""
+- 最多补充两轮材料就要收手。回复 CONTEXT_READY 时，用一段不超过 100 字的「侦察摘要」说明：这段对话的场景（何时、何地、正在发生什么）、背景要点、对方最近的状态，以及你补到的新信息。"""
 
 
 class AgentState(TypedDict, total=False):
@@ -112,12 +113,17 @@ def _explore(llm_config: dict, state: AgentState) -> str:
         base_url=llm_config["base_url"], api_key=llm_config["api_key"],
         model=llm_config["model"], temperature=0.3, timeout=60,
     )
-    tools = {t.name: t for t in _make_tools(state["conversation_id"], len(state["window_messages"]))}
+    tools = {t.name: t for t in _make_tools(state.get("conversation_id"), len(state["window_messages"]))}
     chat = chat.bind_tools(list(tools.values()))
+    # 记忆（画像+摘要）必须喂给侦察员：否则场景核对无从做起——真实事故：
+    # 打台球邀约在窗口外，探索没拿记忆没拉历史，把"打完球回家"误判成"下班"
+    system = EXPLORE_SYSTEM
+    if state.get("memory_sections"):
+        system += "\n\n## 已知背景（长期记忆）\n" + state["memory_sections"]
     msgs = [
-        SystemMessage(content=EXPLORE_SYSTEM),
+        SystemMessage(content=system),
         HumanMessage(content="对话最近消息（窗口）：\n" + "\n".join(
-            f"{('对方' if m['role'] == 'them' else '我')}：{m['text']}" for m in state["window_messages"][-10:]
+            f"{('对方' if m['role'] == 'them' else '我')}：{m['text']}" for m in state["window_messages"][-20:]
         )),
     ]
     for _ in range(MAX_EXPLORE_ROUNDS):
