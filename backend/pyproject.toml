@@ -10,6 +10,10 @@ dependencies = [
     "httpx>=0.27",
     # 微信本地库直读（实验功能）。源码分发未上 PyPI；依赖它的 numpy/pycryptodome/zstandard 由 pip 解析
     "chatlog-keeper @ git+https://github.com/labazhou2024/chatlog-keeper.git",
+    # LangGraph 智能体（explore 工具循环 + analyze 结构化输出）
+    "langchain>=1.4",
+    "langgraph>=1.2",
+    "langchain-openai>=1.0",
 ]
 
 [dependency-groups]
