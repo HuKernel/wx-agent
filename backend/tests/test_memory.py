@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.db import init_db
-from app.llm import client
+from app.llm import agent, client
 from app.llm.schemas import AnalysisResult
 from app.main import app
 from app.memory import store as memory_store
@@ -57,13 +57,13 @@ def _result_with(updates: dict) -> AnalysisResult:
 def test_analyze_writes_profiles(monkeypatch: pytest.MonkeyPatch):
     captured: dict = {}
 
-    def fake(llm, relationship, messages, memory_sections=""):
+    def fake(llm, relationship, messages, memory_sections="", **k):
         captured["memory"] = memory_sections
         return _result_with(
             {"style_profile": "语气偏温柔，爱用短句", "relationship_profile": "近期工作压力大"}
         )
 
-    monkeypatch.setattr(client, "call_llm", fake)
+    monkeypatch.setattr(agent, "run_agent", fake)
 
     cid = _conversation()
     _add(cid, "好烦啊")
@@ -77,8 +77,8 @@ def test_analyze_writes_profiles(monkeypatch: pytest.MonkeyPatch):
 
 def test_memory_injected_and_isolated(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
-        client,
-        "call_llm",
+        agent,
+        "run_agent",
         lambda *a, **k: _result_with(
             {"style_profile": "风格A", "relationship_profile": "小林的工作烦恼"}
         ),
@@ -87,7 +87,7 @@ def test_memory_injected_and_isolated(monkeypatch: pytest.MonkeyPatch):
     _add(cid_a, "好烦啊")
     _analyze(cid_a)
 
-    monkeypatch.setattr(client, "call_llm", lambda *a, **k: AnalysisResult.model_validate(VALID_RESULT))
+    monkeypatch.setattr(agent, "run_agent", lambda *a, **k: AnalysisResult.model_validate(VALID_RESULT))
     cid_b = _conversation("陈姐")
     _add(cid_b, "会议几点")
     _analyze(cid_b)
@@ -103,12 +103,12 @@ def test_memory_injected_and_isolated(monkeypatch: pytest.MonkeyPatch):
 def test_summary_generated_for_long_conversation(monkeypatch: pytest.MonkeyPatch):
     captured: dict = {}
 
-    def fake(llm, relationship, messages, memory_sections=""):
+    def fake(llm, relationship, messages, memory_sections="", **k):
         captured["n"] = len(messages)
         captured["first"] = messages[0]["text"]
         return AnalysisResult.model_validate(VALID_RESULT)
 
-    monkeypatch.setattr(client, "call_llm", fake)
+    monkeypatch.setattr(agent, "run_agent", fake)
     monkeypatch.setattr(client, "summarize_messages", lambda llm, msgs: f"摘要{len(msgs)}条")
 
     cid = _conversation()
@@ -127,11 +127,11 @@ def test_summary_generated_for_long_conversation(monkeypatch: pytest.MonkeyPatch
         client, "summarize_messages", lambda *a, **k: pytest.fail("不应重复摘要")
     )
 
-    def fake2(llm, relationship, messages, memory_sections=""):
+    def fake2(llm, relationship, messages, memory_sections="", **k):
         captured["memory"] = memory_sections
         return AnalysisResult.model_validate(VALID_RESULT)
 
-    monkeypatch.setattr(client, "call_llm", fake2)
+    monkeypatch.setattr(agent, "run_agent", fake2)
     _analyze(cid)
     assert "摘要5条" in captured["memory"]
 
@@ -142,7 +142,7 @@ def test_summary_failure_degrades(monkeypatch: pytest.MonkeyPatch):
         "summarize_messages",
         lambda *a, **k: (_ for _ in ()).throw(client.LLMError("摘要服务挂了")),
     )
-    monkeypatch.setattr(client, "call_llm", lambda *a, **k: AnalysisResult.model_validate(VALID_RESULT))
+    monkeypatch.setattr(agent, "run_agent", lambda *a, **k: AnalysisResult.model_validate(VALID_RESULT))
 
     cid = _conversation()
     for i in range(25):
@@ -153,7 +153,7 @@ def test_summary_failure_degrades(monkeypatch: pytest.MonkeyPatch):
 
 def test_forget_removes_from_context(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
-        client, "call_llm", lambda *a, **k: _result_with({"style_profile": "旧风格"})
+        agent, "run_agent", lambda *a, **k: _result_with({"style_profile": "旧风格"})
     )
     cid = _conversation()
     _add(cid, "hi")
@@ -167,7 +167,7 @@ def test_forget_removes_from_context(monkeypatch: pytest.MonkeyPatch):
 
 
 def test_no_memory_updates_no_write(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(client, "call_llm", lambda *a, **k: AnalysisResult.model_validate(VALID_RESULT))
+    monkeypatch.setattr(agent, "run_agent", lambda *a, **k: AnalysisResult.model_validate(VALID_RESULT))
     cid = _conversation()
     _add(cid, "hi")
     _analyze(cid)

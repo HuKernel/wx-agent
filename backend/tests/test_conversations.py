@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.db import init_db
-from app.llm import client
+from app.llm import agent, client
 from app.main import app
 
 
@@ -74,7 +74,7 @@ def test_analyze_persists_latest(monkeypatch: pytest.MonkeyPatch):
     from tests.test_analyze import VALID_RESULT
 
     monkeypatch.setattr(
-        client, "call_llm", lambda *a, **k: client.AnalysisResult.model_validate(VALID_RESULT)
+        agent, "run_agent", lambda *a, **k: agent.AnalysisResult.model_validate(VALID_RESULT)
     )
     cid = _create()
     api.post(f"/api/conversations/{cid}/messages", json={"role": "them", "text": "好烦啊"})

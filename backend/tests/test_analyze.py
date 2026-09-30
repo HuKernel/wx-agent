@@ -2,10 +2,9 @@ import json
 
 import pytest
 from fastapi.testclient import TestClient
-from httpx import HTTPError
 
 from app.main import app
-from app.llm import client
+from app.llm import agent, client
 
 client_api = TestClient(app)
 
@@ -31,7 +30,7 @@ def _req() -> dict:
 
 
 def test_analyze_ok(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(client, "call_llm", lambda *a, **k: client.AnalysisResult.model_validate(VALID_RESULT))
+    monkeypatch.setattr(agent, "run_agent", lambda *a, **k: agent.AnalysisResult.model_validate(VALID_RESULT))
     resp = client_api.post("/api/analyze", json=_req())
     assert resp.status_code == 200
     assert resp.json()["emotion_analysis"]["emotion"] == "挫败"
@@ -41,7 +40,7 @@ def test_analyze_llm_error_maps_to_502(monkeypatch: pytest.MonkeyPatch):
     def boom(*a, **k):
         raise client.LLMError("模型服务返回 401")
 
-    monkeypatch.setattr(client, "call_llm", boom)
+    monkeypatch.setattr(agent, "run_agent", boom)
     resp = client_api.post("/api/analyze", json=_req())
     assert resp.status_code == 502
     assert "401" in resp.json()["detail"]
@@ -61,46 +60,43 @@ def test_analyze_invalid_role_rejected():
     assert resp.status_code == 422
 
 
-def test_call_llm_parses_valid_json(monkeypatch: pytest.MonkeyPatch):
+def test_analyze_node_parses_valid_json(monkeypatch: pytest.MonkeyPatch):
+    """analyze 节点：JSON 输出 → AnalysisResult（复刻旧 call_llm 契约）。"""
+    class FakeMsg:
+        class content:  # noqa: N805
+            pass
+
+        def __init__(self):
+            self.message = type("m", (), {"content": json.dumps(VALID_RESULT, ensure_ascii=False)})()
+
+    class FakeChoices(list):
+        def __init__(self):
+            super().__init__([FakeMsg()])
+
     class FakeResp:
-        status_code = 200
+        choices = FakeChoices()
 
-        def json(self):
-            return {"choices": [{"message": {"content": json.dumps(VALID_RESULT, ensure_ascii=False)}}]}
+    import app.llm.agent as ag
 
-    monkeypatch.setattr(client.httpx, "post", lambda *a, **k: FakeResp())
-    result = client.call_llm(
-        client.LLMConfig(base_url="http://x/v1", api_key="k", model="m"),
-        "好友",
-        [{"role": "them", "text": "好烦"}],
-    )
-    assert result.reason == "对方需要被理解"
-
-
-def test_call_llm_rejects_bad_schema(monkeypatch: pytest.MonkeyPatch):
-    class FakeResp:
-        status_code = 200
-
-        def json(self):
-            return {"choices": [{"message": {"content": '{"unexpected": 1}'}}]}
-
-    monkeypatch.setattr(client.httpx, "post", lambda *a, **k: FakeResp())
-    with pytest.raises(client.LLMError):
-        client.call_llm(
-            client.LLMConfig(base_url="http://x/v1", api_key="k", model="m"),
-            "好友",
-            [{"role": "them", "text": "好烦"}],
-        )
+    monkeypatch.setattr("openai.OpenAI", lambda **k: type("c", (), {
+        "chat": type("s", (), {"completions": type("p", (), {"create": staticmethod(lambda **k: FakeResp())})})
+    })())
+    state = {
+        "relationship": "好友", "window_messages": [{"role": "them", "text": "好烦"}],
+        "memory_sections": "", "explore_notes": "",
+        "llm_config": {"base_url": "x", "api_key": "k", "model": "m"},
+    }
+    out = ag.analyze(state)
+    assert out["result"].reason == "对方需要被理解"
 
 
-def test_call_llm_wraps_network_error(monkeypatch: pytest.MonkeyPatch):
+def test_explore_degrades_on_failure(monkeypatch: pytest.MonkeyPatch):
+    """explore 节点任何异常都降级为空补充，不阻塞主分析。"""
+    import app.llm.agent as ag
+
     def boom(*a, **k):
-        raise HTTPError("connect failed")
+        raise RuntimeError("network down")
 
-    monkeypatch.setattr(client.httpx, "post", boom)
-    with pytest.raises(client.LLMError):
-        client.call_llm(
-            client.LLMConfig(base_url="http://x/v1", api_key="k", model="m"),
-            "好友",
-            [{"role": "them", "text": "好烦"}],
-        )
+    monkeypatch.setattr(ag, "_explore", boom)
+    state = {"llm_config": {}, "conversation_id": None, "window_messages": []}
+    assert ag.explore(state) == {"explore_notes": ""}

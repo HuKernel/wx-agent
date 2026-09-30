@@ -2,8 +2,8 @@ import json
 
 import httpx
 
-from .prompts import SUMMARY_PROMPT, SYSTEM_PROMPT, build_user_content
-from .schemas import AnalysisResult, LLMConfig
+from .prompts import SUMMARY_PROMPT
+from .schemas import LLMConfig
 
 
 class LLMError(RuntimeError):
@@ -30,26 +30,6 @@ def _chat(llm: LLMConfig, messages: list[dict], json_output: bool = True, temper
         return resp.json()["choices"][0]["message"]["content"]
     except (KeyError, IndexError) as e:
         raise LLMError(f"模型响应格式异常：{e}") from e
-
-
-def call_llm(
-    llm: LLMConfig,
-    relationship: str,
-    messages: list[dict],
-    memory_sections: str = "",
-) -> AnalysisResult:
-    """调用 OpenAI 兼容接口做对话分析，memory_sections 注入 system prompt。"""
-    system = SYSTEM_PROMPT
-    if memory_sections:
-        system += "\n\n## 已知背景（长期记忆，分析时参考，回复风格尽量贴合画像）\n" + memory_sections
-    try:
-        data = json.loads(_chat(llm, [
-            {"role": "system", "content": system},
-            {"role": "user", "content": build_user_content(relationship, messages)},
-        ]))
-        return AnalysisResult.model_validate(data)
-    except ValueError as e:
-        raise LLMError(f"模型输出不符合要求格式：{e}") from e
 
 
 def summarize_messages(llm: LLMConfig, messages: list[dict]) -> str:

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from app.conversations import store as conv_store
-from app.llm import client
+from app.llm import agent, client
 from app.llm.schemas import AnalysisResult, AnalyzeRequest
 from app.memory import store as memory_store
 
@@ -49,7 +49,8 @@ def analyze(req: AnalyzeRequest) -> AnalysisResult:
     )
 
     try:
-        result = client.call_llm(req.llm, relationship, window_messages, memory_sections)
+        result = agent.run_agent(req.llm, relationship, window_messages, memory_sections,
+                                 conversation_id=req.conversation_id)
     except client.LLMError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
 
