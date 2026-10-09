@@ -132,10 +132,14 @@ export const memoryKindLabel: Record<ApiMemory['kind'], string> = {
   summary: '对话摘要'
 }
 
-/** ISO 时间 → 本地 HH:MM */
+/** ISO 时间 → 分档显示：当天 HH:MM；今年非当天 MM-DD HH:MM；往年 YYYY-MM-DD HH:MM */
 export function formatTime(iso: string): string {
   const d = new Date(iso)
-  return Number.isNaN(d.getTime())
-    ? ''
-    : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  if (Number.isNaN(d.getTime())) return ''
+  const now = new Date()
+  const pad = (n: number): string => String(n).padStart(2, '0')
+  const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`
+  if (d.toDateString() === now.toDateString()) return hm
+  const md = `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  return d.getFullYear() === now.getFullYear() ? `${md} ${hm}` : `${d.getFullYear()}-${md} ${hm}`
 }

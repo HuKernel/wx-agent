@@ -148,7 +148,14 @@ def _explore(llm_config: dict, state: AgentState) -> str:
             t = _dt.fromisoformat(ts) if ts else None
         except ValueError:
             t = None
-        label = t.strftime("%m-%d %H:%M") if t else "?"
+        if not t:
+            label = "?"
+        elif t.date() == now.date():
+            label = t.strftime("%H:%M")
+        elif t.year == now.year:
+            label = t.strftime("%m-%d %H:%M")
+        else:
+            label = t.strftime("%Y-%m-%d %H:%M")
         return f"{speaker}（{label}）：{m['text']}"
 
     msgs = [

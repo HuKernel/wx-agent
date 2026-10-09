@@ -85,15 +85,18 @@ memory_updates 为长期记忆维护（若上下文提供了「用户沟通风�
 
 
 def _fmt_msg_time(created_at: str | None, now: datetime) -> str:
-    """消息时间戳 →「HH:MM」（跨天加日期）。缺失或解析失败返回空串。"""
+    """消息时间戳分档：当天 HH:MM；今年非当天 MM-DD HH:MM；往年 YYYY-MM-DD HH:MM。"""
     if not created_at:
         return ""
     try:
         t = datetime.fromisoformat(created_at)
     except ValueError:
         return ""
-    label = t.strftime("%H:%M")
-    return label if t.date() == now.date() else t.strftime("%m-%d ") + label
+    hm = t.strftime("%H:%M")
+    if t.date() == now.date():
+        return hm
+    md = t.strftime("%m-%d ")
+    return md + hm if t.year == now.year else t.strftime("%Y-") + md + hm
 
 
 def build_user_content(relationship: str, messages: list[dict]) -> str:
