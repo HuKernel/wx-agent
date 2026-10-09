@@ -5,6 +5,7 @@ from PyInstaller.utils.hooks import collect_submodules
 datas = []
 hiddenimports = []
 datas += collect_data_files('chatlog_keeper')
+datas += collect_data_files('app.knowledge')
 hiddenimports += collect_submodules('uvicorn')
 
 

@@ -34,13 +34,15 @@ EXPLORE_SYSTEM = """你是情感分析任务的「上下文侦察员」。主分
 - fetch_earlier_messages(count)：对话更早的历史消息（当最近消息引用了之前的事而你不知道时用）
 - search_memory(keyword)：检索关于这位联系人的长期记忆（关系记忆/此前对话摘要）
 - get_contact_profile()：与该联系人的完整关系画像
+- search_knowledge(query)：检索沟通表达知识库（61 本热门书的书摘）——需要具体话术方法或理论支撑时用，query 用场景关键词
 
 判断原则：
 - **先核对场景时间线**：结合「已知背景」对照最近消息——他们现在在哪、在干什么、为什么会聊这个？如果窗口本身说不清缘由（比如晚上在路上、突然情绪变化、提到"上次/那个事"），而更早消息里可能有线索，必须 fetch_earlier_messages 把中间那段拉出来看，别让主分析师猜错场景
 - 常规闲聊、场景清楚且上下文自足 → 不要调用任何工具，直接回复 CONTEXT_READY
 - 对话提到旧事/旧约/人物而你缺背景 → fetch_earlier_messages 或 search_memory
 - 需要关系全局判断（阶段、模式）→ get_contact_profile
-- 最多补充两轮材料就要收手。回复 CONTEXT_READY 时，用一段不超过 100 字的「侦察摘要」说明：这段对话的场景（何时、何地、正在发生什么）、背景要点、对方最近的状态，以及你补到的新信息。"""
+- 涉及沟通难点（怎么开口/拒绝/安慰/化解尴尬/提意见）→ search_knowledge 查话术方法，把书摘要点带进侦察摘要供主分析师参考
+- 最多补充两轮材料就要收手。回复 CONTEXT_READY 时，用一段不超过 100 字的「侦察摘要」说明：这段对话的场景（何时、何地、正在发生什么）、背景要点、对方最近的状态，以及你补到的新信息（含书摘要点，注明出处书名）。"""
 
 
 class AgentState(TypedDict, total=False):
@@ -100,7 +102,19 @@ def _make_tools(conversation_id: str | None, window_len: int):
             ).fetchone()
         return row["content"] if row else "还没有这位联系人的关系画像。"
 
-    return [fetch_earlier_messages, search_memory, get_contact_profile]
+    @tool
+    def search_knowledge(query: str) -> str:
+        """检索沟通表达知识库（《如何提高沟通，表达能力》书单 61 本的书摘条目）。
+
+        当分析需要具体话术方法或理论支撑时用，如：怎么提意见不得罪人、如何幽默
+        化解尴尬、拒绝的艺术、安慰人的正确姿势。query 用场景关键词（如"幽默
+        化解尴尬""提意见 拒绝"），可换关键词多试一两次。
+        """
+        from app.knowledge import store
+
+        return store.format_hits(store.search(query, k=3))
+
+    return [fetch_earlier_messages, search_memory, get_contact_profile, search_knowledge]
 
 
 def load_context(state: AgentState) -> dict:
