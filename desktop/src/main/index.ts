@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { getSettings, saveSettings } from './settings'
 import { analyzeConversation, type AnalyzePayload } from './analyze'
@@ -6,56 +6,14 @@ import { getBackendUrl, startBackend, stopBackend } from './backend'
 import { readClipboardForImport, startClipboardWatch } from './wechat-clipboard'
 import { startWechatDirectWatch } from './wechat-direct'
 
-// Electron 默认菜单为英文硬编码，这里替换为中文菜单
-function setupMenu(): void {
-  const menu = Menu.buildFromTemplate([
-    {
-      label: '文件',
-      submenu: [{ role: 'quit', label: '退出' }]
-    },
-    {
-      label: '编辑',
-      submenu: [
-        { role: 'undo', label: '撤销' },
-        { role: 'redo', label: '重做' },
-        { type: 'separator' },
-        { role: 'cut', label: '剪切' },
-        { role: 'copy', label: '复制' },
-        { role: 'paste', label: '粘贴' },
-        { role: 'selectAll', label: '全选' }
-      ]
-    },
-    {
-      label: '视图',
-      submenu: [
-        { role: 'reload', label: '重新加载' },
-        { role: 'forceReload', label: '强制重新加载' },
-        { role: 'toggleDevTools', label: '开发者工具' },
-        { type: 'separator' },
-        { role: 'resetZoom', label: '重置缩放' },
-        { role: 'zoomIn', label: '放大' },
-        { role: 'zoomOut', label: '缩小' },
-        { type: 'separator' },
-        { role: 'togglefullscreen', label: '全屏' }
-      ]
-    },
-    {
-      label: '窗口',
-      submenu: [
-        { role: 'minimize', label: '最小化' },
-        { role: 'zoom', label: '缩放' },
-        { role: 'close', label: '关闭' }
-      ]
-    }
-  ])
-  Menu.setApplicationMenu(menu)
-}
-
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
+    minWidth: 960, // 三栏布局（侧栏64+会话列表+主区）的下限，再小布局挤坏
+    minHeight: 600,
     title: 'Emora AI',
+    autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
@@ -67,11 +25,20 @@ function createWindow(): void {
   } else {
     win.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  // 无菜单栏后保留 devtools 排障入口（复制/粘贴等编辑快捷键是 Chromium 内置，不受影响）
+  win.webContents.on('before-input-event', (_e, input) => {
+    if (input.type === 'keyDown' && input.key === 'F12') {
+      win.webContents.toggleDevTools()
+    }
+    if (input.type === 'keyDown' && input.key === 'r' && input.control) {
+      win.webContents.reload()
+    }
+  })
 }
 
 app.whenReady().then(async () => {
   await startBackend()
-  setupMenu()
 
   ipcMain.handle('backend-url', () => getBackendUrl())
   ipcMain.handle('settings:get', () => getSettings())
