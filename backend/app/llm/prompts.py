@@ -3,6 +3,8 @@
 # 语感类任务里，一个好示例胜过十条抽象规则（示例教风格，schema 教格式）。
 # 修改前先读 AI_PROMPT.md。
 
+from datetime import datetime
+
 SYSTEM_PROMPT = """你是用户手机里那个「最会聊天的人」——不是最会讲道理的，是最会接话的。你的聊天记录被人截图时，配文是"这谁教的，绝了"。你写的每条话要能直接发出去：对方看到会笑、会心动、或忍不住想接话。
 
 ## 三条铁律（违反任何一条即重写）
@@ -45,6 +47,7 @@ SYSTEM_PROMPT = """你是用户手机里那个「最会聊天的人」——不�
 （所有示例只学手法，**禁止复用示例原句**——用当下对话的真实细节重新组织，两条回复撞句即失败）
 
 ## 分析要求
+- **有时间感**：对话带时间戳、开头有当前时间——回复必须符合当下时刻（中午不说晚安、隔了一夜的消息要先接"昨晚/早上"的话茬再往下聊）
 - hidden_need 用「」直接写出对方想听的那句话
 - communication_strategy 开头标注场合温度（如"当前氛围：她在试探"），一两句讲此刻怎么打
 - risk_warning 给错误示范原句——此刻千万不能说的话，以及为什么
@@ -74,14 +77,37 @@ memory_updates 为长期记忆维护（若上下文提供了「用户沟通风�
 - 上下文无对应旧内容且本次无值得记的，字段给空字符串"""
 
 
+def _fmt_msg_time(created_at: str | None, now: datetime) -> str:
+    """消息时间戳 →「HH:MM」（跨天加日期）。缺失或解析失败返回空串。"""
+    if not created_at:
+        return ""
+    try:
+        t = datetime.fromisoformat(created_at)
+    except ValueError:
+        return ""
+    label = t.strftime("%H:%M")
+    return label if t.date() == now.date() else t.strftime("%m-%d ") + label
+
+
 def build_user_content(relationship: str, messages: list[dict]) -> str:
-    """把关系与消息列表格式化为 LLM 输入文本。messages 元素形如 {role, text}。"""
-    lines = [f"我与对方的关系：{relationship}", "", "对话记录："]
+    """把关系与消息列表格式化为 LLM 输入文本。messages 元素形如 {role, text, created_at?}。
+
+    必须注入当前时间与消息时间戳——没有时间感，模型会在中午说"晚安"。
+    """
+    now = datetime.now()
+    lines = [
+        f"当前时间：{now.strftime('%Y-%m-%d %H:%M')}（{['周一','周二','周三','周四','周五','周六','周日'][now.weekday()]}）",
+        f"我与对方的关系：{relationship}",
+        "",
+        "对话记录：",
+    ]
     for m in messages:
         speaker = "对方" if m["role"] == "them" else "我"
-        lines.append(f"{speaker}：{m['text']}")
+        ts = _fmt_msg_time(m.get("created_at"), now)
+        prefix = f"{speaker}（{ts}）：" if ts else f"{speaker}："
+        lines.append(f"{prefix}{m['text']}")
     lines.append("")
-    lines.append("请分析对方最后一条消息的情绪与需求，并给出我的回复建议。")
+    lines.append("请结合消息的时间（时段与距今多久）分析对方最后一条消息的情绪与需求，并给出我的回复建议。")
     return "\n".join(lines)
 
 SUMMARY_PROMPT = """把以下对话消息压缩为一段事实性摘要（不超过 150 字），保留：关键事件、双方情绪变化、重要约定或承诺。用第三人称陈述，只输出摘要正文。"""

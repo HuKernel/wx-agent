@@ -33,10 +33,18 @@ def _chat(llm: LLMConfig, messages: list[dict], json_output: bool = True, temper
 
 
 def summarize_messages(llm: LLMConfig, messages: list[dict]) -> str:
-    """把一段消息压缩为摘要文本（纯文本输出）。"""
-    lines = ["对话消息："] + [
-        f"{'对方' if m['role'] == 'them' else '我'}：{m['text']}" for m in messages
-    ]
+    """把一段消息压缩为摘要文本（纯文本输出）。消息带时间戳，摘要才有时间线。"""
+    from datetime import datetime
+
+    def _line(m: dict) -> str:
+        speaker = "对方" if m["role"] == "them" else "我"
+        try:
+            t = datetime.fromisoformat(m.get("created_at") or "")
+            return f"{speaker}（{t.strftime('%m-%d %H:%M')}）：{m['text']}"
+        except ValueError:
+            return f"{speaker}：{m['text']}"
+
+    lines = ["对话消息："] + [_line(m) for m in messages]
     messages_payload = [
         {"role": "system", "content": SUMMARY_PROMPT},
         {"role": "user", "content": "\n".join(lines)},

@@ -120,11 +120,25 @@ def _explore(llm_config: dict, state: AgentState) -> str:
     system = EXPLORE_SYSTEM
     if state.get("memory_sections"):
         system += "\n\n## 已知背景（长期记忆）\n" + state["memory_sections"]
+    from datetime import datetime as _dt
+
+    now = _dt.now()
+    now_label = now.strftime("%Y-%m-%d %H:%M")
+
+    def _line(m: dict) -> str:
+        speaker = "对方" if m["role"] == "them" else "我"
+        ts = m.get("created_at")
+        try:
+            t = _dt.fromisoformat(ts) if ts else None
+        except ValueError:
+            t = None
+        label = t.strftime("%m-%d %H:%M") if t else "?"
+        return f"{speaker}（{label}）：{m['text']}"
+
     msgs = [
         SystemMessage(content=system),
-        HumanMessage(content="对话最近消息（窗口）：\n" + "\n".join(
-            f"{('对方' if m['role'] == 'them' else '我')}：{m['text']}" for m in state["window_messages"][-20:]
-        )),
+        HumanMessage(content=f"当前时间：{now_label}\n对话最近消息（窗口，含时间戳）：\n"
+                     + "\n".join(_line(m) for m in state["window_messages"][-20:])),
     ]
     for _ in range(MAX_EXPLORE_ROUNDS):
         ai: AIMessage = chat.invoke(msgs)
