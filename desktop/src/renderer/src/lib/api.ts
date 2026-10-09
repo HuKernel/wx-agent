@@ -83,8 +83,10 @@ export const api = {
       body: JSON.stringify({ data_root: dataRoot || null })
     }),
 
-  wechatConversations: (dataRoot: string): Promise<ApiWechatConversation[]> =>
-    request(`/wechat/conversations?data_root=${encodeURIComponent(dataRoot || '')}`),
+  wechatConversations: (dataRoot: string, limit = 50): Promise<ApiWechatConversation[]> =>
+    request(
+      `/wechat/conversations?data_root=${encodeURIComponent(dataRoot || '')}&limit=${limit}`
+    ),
 
   wechatBind: (body: {
     data_root: string | null

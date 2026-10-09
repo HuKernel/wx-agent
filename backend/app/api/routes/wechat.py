@@ -193,7 +193,7 @@ def extract_key(req: ExtractKeyRequest) -> dict:
 
 @router.get("/conversations")
 def conversations(data_root: str | None = None, limit: int = 50) -> list[dict]:
-    """最近活跃的私聊列表（按消息量排序），供绑定 UI 勾选。"""
+    """私聊列表（按消息量排序），供绑定 UI 勾选/搜索。limit 可到 5000（前端全量拉取本地过滤）。"""
     reader = _make_reader(data_root)
     if reader is None:
         raise HTTPException(409, "还没有可用密钥，请先提取")
@@ -209,7 +209,7 @@ def conversations(data_root: str | None = None, limit: int = 50) -> list[dict]:
     direct = [c for c in directory if c.get("conversation_type") == "direct"]
     direct.sort(key=lambda c: -(c.get("message_count") or 0))
     result = []
-    for c in direct[:limit]:
+    for c in direct[: max(1, min(limit, 5000))]:
         # label 形如 "备注：xx · 昵称：yy"，取第一个可用段做显示名
         label = re.sub(r"^(备注|昵称)：", "", c.get("label") or "").split(" · ")[0].strip()
         result.append({

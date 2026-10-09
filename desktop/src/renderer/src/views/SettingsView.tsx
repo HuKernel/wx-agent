@@ -84,6 +84,13 @@ function WechatDirectSection(props: {
   const [error, setError] = useState<string | null>(null)
   const [convs, setConvs] = useState<ApiWechatConversation[] | null>(null)
   const [bound, setBound] = useState<ApiConversationSummary[]>([])
+  const [search, setSearch] = useState('')
+  const filtered =
+    convs === null
+      ? []
+      : search.trim()
+        ? convs.filter((c) => c.display_name.toLowerCase().includes(search.trim().toLowerCase()))
+        : convs
   // 输入框本地值，失焦才保存：避免逐字符触发保存+状态请求竞态
   const [rootDraft, setRootDraft] = useState(dataRoot)
 
@@ -151,7 +158,8 @@ function WechatDirectSection(props: {
     setBusy(true)
     setError(null)
     try {
-      setConvs(await api.wechatConversations(dataRoot))
+      // 全量拉取（几千条量级），搜索由前端即时过滤，避免逐键请求
+      setConvs(await api.wechatConversations(dataRoot, 5000))
     } catch (e) {
       setError(e instanceof Error ? e.message : '会话列表读取失败')
     } finally {
@@ -290,8 +298,15 @@ function WechatDirectSection(props: {
           </div>
 
           {convs !== null && (
-            <ul className="max-h-64 space-y-1.5 overflow-y-auto">
-              {convs.map((c) => {
+            <>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={`搜索 ${convs.length} 个微信好友（昵称/备注）…`}
+                className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition-shadow duration-200 focus:border-primary/50"
+              />
+              <ul className="max-h-64 space-y-1.5 overflow-y-auto">
+                {filtered.slice(0, 40).map((c) => {
                 const isBound = bound.some((b) => b.wechat_chat_id === c.chat_id)
                 return (
                   <li
@@ -315,7 +330,16 @@ function WechatDirectSection(props: {
                   </li>
                 )
               })}
-            </ul>
+              {filtered.length === 0 && (
+                <li className="px-1 py-2 text-sm text-muted-foreground">没有匹配的好友</li>
+              )}
+              {filtered.length > 40 && (
+                <li className="px-1 py-2 text-xs text-muted-foreground">
+                  匹配 {filtered.length} 个，仅显示前 40 个，输入更精确的关键词缩小范围
+                </li>
+              )}
+              </ul>
+            </>
           )}
         </>
       )}
