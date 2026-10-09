@@ -250,7 +250,7 @@ function WechatDirectSection(props: {
               type="checkbox"
               checked={directOn}
               onChange={(e) => onPersist({ wechatDirect: e.target.checked })}
-              className="h-4 w-4 cursor-pointer accent-[#7c3aed]"
+              className="h-4 w-4 cursor-pointer accent-[#EC4899]"
             />
             <span className="text-sm">
               自动同步并分析新消息
@@ -497,7 +497,7 @@ export default function SettingsView(): React.JSX.Element {
               type="checkbox"
               checked={clipboardWatch}
               onChange={(e) => setClipboardWatch(e.target.checked)}
-              className="h-4 w-4 cursor-pointer accent-[#7c3aed]"
+              className="h-4 w-4 cursor-pointer accent-[#EC4899]"
             />
             <span className="text-sm">
               剪贴板自动导入

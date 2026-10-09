@@ -1,21 +1,62 @@
 @import "tailwindcss";
 
-@theme {
-  --color-primary: #7c3aed;
-  --color-primary-foreground: #ffffff;
-  --color-secondary: #a78bfa;
-  --color-accent: #0891b2;
-  --color-background: #faf5ff;
-  --color-foreground: #1e1b4b;
-  --color-card: #ffffff;
-  --color-card-foreground: #1e1b4b;
-  --color-muted: #eceef9;
-  --color-muted-foreground: #475569;
-  --color-border: #ddd6fe;
-  --color-destructive: #dc2626;
-  --color-ring: #7c3aed;
+/* ── Brutalism 设计语言 ─────────────────────────────────────────────
+   token：主 #EC4899 粉 / 强调 #EA580C 橙 / 底 #FDF2F8 / 边框 3px #101014
+   圆角 0；硬阴影 6px 6px 0 纯黑；过渡 0ms（瞬时即风格）
+   对比度核算：#101014 on #EC4899 ≈ 5.3:1、on #EA580C ≈ 5.3:1、
+   on #FDF2F8 ≈ 17:1 —— 主/强调色上的文字一律用黑，不用白（白仅 ≈3.5:1）
+*/
+@font-face {
+  font-family: "Outfit";
+  font-weight: 700;
+  src: url("./fonts/Outfit-700.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Outfit";
+  font-weight: 900;
+  src: url("./fonts/Outfit-900.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Rubik";
+  font-weight: 400;
+  src: url("./fonts/Rubik-400.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Rubik";
+  font-weight: 700;
+  src: url("./fonts/Rubik-700.ttf") format("truetype");
+}
 
-  --font-sans: "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+@theme {
+  --color-primary: #ec4899;
+  --color-primary-foreground: #101014;
+  --color-secondary: #f472b6;
+  --color-secondary-foreground: #101014;
+  --color-accent: #ea580c;
+  --color-accent-foreground: #101014;
+  --color-background: #fdf2f8;
+  --color-foreground: #101014;
+  --color-card: #ffffff;
+  --color-card-foreground: #101014;
+  --color-muted: #fce7f3;
+  --color-muted-foreground: #4a044e;
+  --color-border: #101014;
+  --color-destructive: #b91c1c;
+  --color-destructive-foreground: #ffffff;
+  --color-ring: #101014;
+
+  --font-sans: "Rubik", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-display: "Outfit", "Rubik", "PingFang SC", sans-serif;
+
+  /* 圆角全部归零：所有 rounded-* 工具类输出 0 */
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
 }
 
 html,
@@ -24,7 +65,70 @@ body,
   height: 100%;
 }
 
+/* 瞬时即风格：全局无平滑过渡（hover 位移/阴影变化为阶跃）；
+   只压 transition，不动 animation——跑马灯等演出动画另配 */
+*,
+*::before,
+*::after {
+  transition-duration: 0ms !important;
+}
+
+/* 边框统一 3px 黑 + 硬阴影 6px 6px 0：卡片/按钮/输入框同语言 */
+.border,
+.border-t,
+.border-b,
+.border-l,
+.border-r {
+  border-color: var(--color-border);
+}
+.border {
+  border-width: 3px;
+  box-shadow: 6px 6px 0 #101014;
+}
+
+/* 可交互元素：hover 瞬时位移 + 阴影加深（无过渡） */
+button:not(:disabled):hover,
+a:hover,
+[role="button"]:not(:disabled):hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0 #101014;
+}
+button:not(:disabled):active,
+[role="button"]:not(:disabled):active {
+  transform: translate(1px, 1px);
+  box-shadow: 4px 4px 0 #101014;
+}
+
 :focus-visible {
-  outline: 2px solid var(--color-ring);
+  outline: 3px solid #101014;
   outline-offset: 2px;
+}
+
+/* 标题统一 Outfit 900（Brutalism 字重即层级） */
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+/* ── 跑马灯 ─────────────────────────────────────────────────────── */
+@keyframes marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  animation: marquee-scroll 28s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+  }
 }
