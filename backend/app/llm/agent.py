@@ -188,6 +188,48 @@ def explore(state: AgentState) -> dict:
         return {"explore_notes": ""}
 
 
+def _repair_json(content: str) -> str:
+    """修模型 JSON 里常见的未转义引号：字符串值内的裸 " 前补 \\。
+
+    判定"结构引号"：闭合侧要求下一个非空白字符是 } ] : , 或行尾；
+    开启侧要求前一个非空白字符是 { [ : , 。不满足即视为内容引号。
+    修不好原样返回，由上层报错（错误里带原始输出便于诊断）。
+    """
+    out = []
+    in_str = False
+    i = 0
+    n = len(content)
+    while i < n:
+        ch = content[i]
+        if ch == "\\" and in_str and i + 1 < n:
+            out.append(ch)
+            out.append(content[i + 1])
+            i += 2
+            continue
+        if ch == '"':
+            if not in_str:
+                prev = next((c for c in reversed(out) if not c.isspace()), "")
+                if prev in "{[:" or prev == ",":
+                    in_str = True
+                else:
+                    out.append("\\")  # 不该出现引号的位置：转义兜底
+                    out.append(ch)
+                    i += 1
+                    continue
+            else:
+                nxt = next((c for c in content[i + 1:] if not c.isspace()), "")
+                if nxt in "}]:" or nxt == "," or not nxt:
+                    in_str = False
+                else:
+                    out.append("\\")  # 字符串中间的裸引号 → 转义
+                    out.append(ch)
+                    i += 1
+                    continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
 def analyze(state: AgentState) -> dict:
     system = SYSTEM_PROMPT
     if state.get("memory_sections"):
@@ -210,8 +252,14 @@ def analyze(state: AgentState) -> dict:
         raise LLMError(f"模型调用失败：{e}") from e
     try:
         return {"result": AnalysisResult.model_validate(json.loads(content))}
+    except (ValueError, json.JSONDecodeError):
+        pass
+    # json_object 模式下模型仍会偶发在字符串值里写裸引号（中文语境常见，
+    # 如 risk_warning 里引用错误示范原句）——先修复再重试一次，仍失败才报错
+    try:
+        return {"result": AnalysisResult.model_validate(json.loads(_repair_json(content)))}
     except (ValueError, json.JSONDecodeError) as e:
-        raise LLMError(f"模型输出不符合要求格式：{e}") from e
+        raise LLMError(f"模型输出不符合要求格式：{e}\n原始输出前 200 字：{content[:200]}") from e
 
 
 def run_agent(
